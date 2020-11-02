@@ -45,7 +45,7 @@ static struct Window *con_Win;
 static UBYTE con_Raw, 			/* == 1 when "*" forced to raw */
 			 con_BG,
              con_TxW, 
-			 con_TxH;
+			 con_TxH, con_Fatal;
 static char *con_Title; 		/* original con_Win title */
 static UBYTE palette[8];
 static char con_Buf[1024];
@@ -609,7 +609,7 @@ static void cleanup( )
 	con_Win = NULL;
 	if(CONSOLE) {
 		exit_console();
-		if(!interp_initialized)	_puts("\033c"); else _gotoxy(screen_rows,1);
+		if(!con_Fatal)	_puts("\033c"); else _gotoxy(screen_rows,1);
 		_flush();
 		if(con_Raw) SetMode13(CONSOLE,0);
 		Close(CONSOLE); CONSOLE=0;
@@ -1343,14 +1343,13 @@ void sound( int argc, zword_t * argv )
 
 void fatal( const char *s )
 {
-
-   reset_screen(  );
-   fprintf( stderr, "\nFatal error: %s (PC = 0x%08lX)\n", s, pc );
+	con_Fatal = TRUE;
+	reset_screen(  );
+	fprintf( stderr, "\nFatal error: %s (PC = 0x%08lX)\n", s, pc );
 #ifdef DEBUG_TERPRE
-   fprintf( stdout, "\nFatal error: %s (PC = 0x%08lX)\n", s, pc );
+	fprintf( stdout, "\nFatal error: %s (PC = 0x%08lX)\n", s, pc );
 #endif
-   exit( 1 );
-
+	exit( 1 );
 }                               /* fatal */
 
 #ifdef STRICTZ

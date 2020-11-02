@@ -135,6 +135,10 @@ int interpret(  )
                case 0x04:
                   z_set_font( operand[0] );
                   break;
+		// 05 ==> z_draw_picture
+		// 06 ==> z_picture_data
+		// 07 ==> z_erase_picture
+		// 08 ==> z_set_margins
 
                case 0x09:
                   z_save_undo(  );
@@ -142,6 +146,12 @@ int interpret(  )
                case 0x0a:
                   z_restore_undo(  );
                   break;
+				  // 0b ==> z_print_unicode
+				  // 0c ==> z_check_unicode
+
+			   case 0x0c:
+					z_check_unicode( operand[0] );
+					break;
 
                default:
                   fatal( "interpret(): Illegal extended operand instruction" );

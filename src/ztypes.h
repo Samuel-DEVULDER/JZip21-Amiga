@@ -780,7 +780,7 @@ void print_time( int, int );
 void write_char( int );
 void write_string( const char * );
 void write_zchar( int );
-
+void z_check_unicode( zword_t );
 
 /* variable.c */
 

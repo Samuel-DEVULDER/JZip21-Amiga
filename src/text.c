@@ -1143,3 +1143,24 @@ void z_encode( zword_t word_addr, zword_t word_length, zword_t word_offset, zwor
       set_word( dest_addr, word[i] );
 
 }                               /* z_encode */
+
+/*
+ * z_check_unicode, test if a unicode character can be printed (bit 0) and read (bit 1).
+ *
+ * 	zargs[0] = Unicode
+ *
+ */
+
+void z_check_unicode (zword_t c )
+{
+    zword_t result = 0;
+
+    if (c <= 0x1f) {
+		if ((c == 0x08) || (c == 0x0d) || (c == 0x1b))
+			result = 2;
+    } else if (c <= 0x7e)
+		result = 3;
+
+    store_operand (result);
+
+}/* z_check_unicode */
