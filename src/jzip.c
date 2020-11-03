@@ -53,7 +53,7 @@ static void configure( zbyte_t, zbyte_t );
  * Initialise environment, start interpreter, clean up.
  */
 
-int main( int argc, char *argv[] )
+int __stdargs main( int argc, char *argv[] )
 {
    process_arguments( argc, argv );
 

@@ -41,7 +41,7 @@ int getopt( int argc, char *argv[], const char *opts )
    int c;
    char *cp;
 
-   if ( sp == 1 )
+   if ( sp == 1 ) {
       if ( optind >= argc || argv[optind][0] != '-' || argv[optind][1] == '\0' )
          return ( EOF );
       else if ( strcmp( argv[optind], "--" ) == 0 )
@@ -49,6 +49,7 @@ int getopt( int argc, char *argv[], const char *opts )
          optind++;
          return ( EOF );
       }
+   }
    optopt = c = argv[optind][sp];
    if ( c == ':' || ( cp = strchr( opts, c ) ) == NULL )
    {

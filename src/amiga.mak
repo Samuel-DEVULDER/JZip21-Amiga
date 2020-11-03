@@ -2,7 +2,7 @@
 #    (It's really just the Unix makefile with one or two small changes)
 
 CC = gcc
-CFLAGS = -m68000 -O3 -fomit-frame-pointer -c -DPOSIX -DAMIGA -DLOUSY_RANDOM -DHARD_COLORS
+CFLAGS =  -Wall -mregparm -m68000 -O3 -fomit-frame-pointer -c -DPOSIX -DAMIGA -DLOUSY_RANDOM -DHARD_COLORS
 LDFLAGS = -s
 LIBS = 
 

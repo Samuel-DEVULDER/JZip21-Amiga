@@ -51,9 +51,9 @@ static FILE *rfp = NULL;        /* Record file pointer */
 #ifndef USE_ZLIB
 static char gfpbuffer[BUFSIZ];  
 #endif
-#endif 
 static char sfpbuffer[BUFSIZ];  
 static char rfpbuffer[BUFSIZ];  
+#endif 
 
 char save_name[Z_FILENAME_MAX + Z_PATHNAME_MAX + 1] = "story.sav";
 char script_name[Z_FILENAME_MAX + Z_PATHNAME_MAX + 1] = "story.scr";

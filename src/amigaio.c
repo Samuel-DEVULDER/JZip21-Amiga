@@ -46,9 +46,9 @@ static UBYTE con_Raw, 			/* == 1 when "*" forced to raw */
 			 con_BG,
              con_TxW, 
 			 con_TxH, con_Fatal;
-static char *con_Title; 		/* original con_Win title */
+static UBYTE *con_Title; 		/* original con_Win title */
 static UBYTE palette[8];
-static char con_Buf[1024];
+static UBYTE con_Buf[1024];
 static int con_Buf_len;
 
 static void cleanup();		
@@ -65,8 +65,8 @@ static LONG SendPkt13(struct MsgPort * handler, LONG action, LONG arg1, LONG arg
 
     proc = (struct Process *)FindTask(NULL);
 
-    if (packet = (struct StandardPacket *)AllocMem( sizeof(struct StandardPacket),
-                                MEMF_CLEAR | MEMF_PUBLIC) ) {
+    if ((packet = (struct StandardPacket *)AllocMem( sizeof(struct StandardPacket),
+                                MEMF_CLEAR | MEMF_PUBLIC)) ) {
 
         packet->sp_Msg.mn_Node.ln_Name        = (char *)&(packet->sp_Pkt);
         packet->sp_Pkt.dp_Link                = & packet->sp_Msg;
@@ -141,7 +141,7 @@ static void open_console( )
 	if(!IsInteractive(Input())) goto fallback;
 	if(!IsInteractive(Output())) goto fallback;
 	
-	CONSOLE = Open("*", MODE_OLDFILE);
+	CONSOLE = Open((UBYTE*)"*", MODE_OLDFILE);
 	if(!CONSOLE) goto fallback;
 	if(!IsInteractive(CONSOLE)) goto fallback;
 	
@@ -149,7 +149,7 @@ static void open_console( )
 	con_Win = GetWindow(CONSOLE);
 	if(con_Win) {
 		con_Title = con_Win->Title;
-		SetWindowTitles(con_Win, TITLE, (void*)-1);
+		SetWindowTitles(con_Win, (UBYTE*)TITLE, (void*)-1);
 	}
 	
 	/* change to raw */
@@ -159,9 +159,9 @@ static void open_console( )
 fallback:
 		if(CONSOLE) Close(CONSOLE);
 		/* Open raw console directly */
-		CONSOLE = Open("RAW://640/-1/" TITLE "/CLOSE/SMART", MODE_OLDFILE);
+		CONSOLE = Open((UBYTE*)"RAW://640/-1/" TITLE "/CLOSE/SMART", MODE_OLDFILE);
 		if(!CONSOLE) /* kick 1.3 version */
-		CONSOLE = Open("RAW:0/0/640/200/" TITLE, MODE_OLDFILE);
+		CONSOLE = Open((UBYTE*)"RAW:0/0/640/200/" TITLE, MODE_OLDFILE);
 		if(!CONSOLE) fatal("Can't open console"); 
 	}
 	
@@ -193,7 +193,7 @@ int space_avail;
 static int ptr1, ptr2 = 0;
 static int end_ptr = 0;
 static int row, head_col;
-static int keypad_avail = 1;
+// static int keypad_avail = 1;
 
 /* done with editing global info */
 
@@ -205,8 +205,8 @@ static int saved_col;
 
 static int cursor_saved = OFF;
 
-static char cmbuf[1024];
-static char *cmbufp;
+// static char cmbuf[1024];
+// static char *cmbufp;
 
 static void display_string( char *s );
 
@@ -218,7 +218,7 @@ static void _ctrl_c( )
 static void _flush()
 {
 	int len = con_Buf_len;
-	char *buf = con_Buf;
+	UBYTE *buf = con_Buf;
 	while(len>0) {
 		int i = Write(CONSOLE, buf, len);
 		if(i<0) fatal("I/O error");
@@ -277,6 +277,15 @@ static void _putf(char *fmt, ...)
 static void _cursor(int on)
 {
 	_puts(on ? CSI "\x20\x70" : CSI "\x30\x20\x70");
+	if(con_Win && SysBase->LibNode.lib_Version>=39) {
+		if(on)
+			SetWindowPointer(con_Win, TAG_DONE);
+		else
+			SetWindowPointer(con_Win, 
+				WA_BusyPointer, TRUE, 
+				WA_PointerDelay, TRUE, 
+				TAG_DONE);
+	}
 }
 
 static void _gotoxy(int row, int col)
@@ -325,7 +334,7 @@ static void _flush_input( )
 
 static int get_winsize(int *screen_rows, int *screen_cols )
 {
-	unsigned char *s = con_Buf; int l,ret=0;
+	UBYTE *s = con_Buf; int l,ret=0;
 	_flush_input();	_puts(CSI "\x30\x20\x71"); _flush();
 	s[l = _gets(s, sizeof(con_Buf)-1)] = 0;
 	/* 9B 31 3B 31 3B <bottom margin> 3B <right margin> 72 */
@@ -350,7 +359,7 @@ static int get_winsize(int *screen_rows, int *screen_cols )
 }
 
 static void _rst_cursor() {
-	unsigned char *s = con_Buf; int l,ret=0;
+	UBYTE *s = con_Buf; int l;
 	_flush_input();	_puts(CSI "\x36\x6E"); _flush();
 	s[l = _gets(s, sizeof(con_Buf)-1)] = 0;
 	if(s[0]==0x9B && s[l-1]==0x52) {
@@ -433,7 +442,7 @@ again:
 	while(*s) c = (c<<8) | *s++;
 	
 	/* framework expects \r */
-	if(c=='\n') c=='\r';
+	if(c=='\n') c='\r';
 	
 	/* ctrl-c / ctrl-d ==> bye */
 	if(c==3 || c==4) _ctrl_c();
@@ -769,7 +778,7 @@ void clear_line(  )
 
 void clear_text_window( void)
 {
-	int row, col, i;
+	int row, col;
 	get_cursor_position( &row, &col );
 	_gotoxy(status_size+1,1); 
 	_make_global_bg(current_bg); _puts(CSI "\x4A"); /* Erase in Display	(only to end of display) */
@@ -1221,7 +1230,7 @@ int input_line( int buflen, char *buffer, int timeout, int *read_size )
 	}
 }
                              /* input_line */
-
+#if 0
 static void rundown(  )
 {
    unload_cache(  );
@@ -1229,7 +1238,9 @@ static void rundown(  )
    close_script(  );
    reset_screen(  );
 }                               /* rundown */
+#endif
 
+#if 0
 static void set_cbreak_mode( mode )
    int mode;
 {
@@ -1248,6 +1259,7 @@ static void set_cbreak_mode( mode )
       signal( SIGTERM, SIG_DFL );
    }
 }                               /* set_cbreak_mode */
+#endif
 
 /*
  * codes_to_text
@@ -1399,7 +1411,7 @@ void process_arguments( int argc, char *argv[] )
    int size;
    int expected_args;
    int num;
-
+   
 #ifdef STRICTZ
    /* Initialize the STRICTZ variables. */
 
