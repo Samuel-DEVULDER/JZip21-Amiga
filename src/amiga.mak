@@ -2,8 +2,8 @@
 #    (It's really just the Unix makefile with one or two small changes)
 
 CC = gcc
-CFLAGS =  -Wall -mregparm -m68000 -O3 -fomit-frame-pointer -c -DPOSIX -DAMIGA -DLOUSY_RANDOM -DHARD_COLORS
-LDFLAGS = -s
+CFLAGS =  -g -Wall -mregparm -m68000 -O3 -fomit-frame-pointer -c -DPOSIX -DAMIGA -DLOUSY_RANDOM -DHARD_COLORS
+LDFLAGS = -g
 LIBS = 
 
 INC = ztypes.h
