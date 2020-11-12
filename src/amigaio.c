@@ -576,7 +576,7 @@ static int _getc(int timeout)
 	unsigned char *s = con_Buf; int c=0, l;
 
 	_flush();
-	if(timeout && !WaitForChar(CONSOLE,  timeout*1000000)) 
+	if(timeout && !WaitForChar(CONSOLE,  timeout*100000)) 
 		return -1;
 		
 again:
