@@ -18,6 +18,9 @@ jzexe : jzexe.h
 
 jzip : $(OBJS)
 	$(CC) -o $@ $(LDFLAGS) $(OBJS) $(LIBS)
+	
+%.s:%.c
+	$(CC) -S -o $@ $< $(CFLAGS)
 
 $(OBJS): $(INC) extern.c amiga.mak
 

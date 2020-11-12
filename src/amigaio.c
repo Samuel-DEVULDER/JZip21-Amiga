@@ -51,7 +51,7 @@ static UBYTE con_Raw, 			/* == 1 when "*" forced to raw */
              con_TxW, 
 			 con_TxH, con_Fatal;
 static UBYTE *con_Title; 		/* original con_Win title */
-static struct TextFont *con_Font, *con_GfxFont, *newGfxFont(int w, int h);
+static struct TextFont *con_Font, *con_GfxFont, *newFont3(struct TextFont *wrc);
 static struct ConUnit *con_Unit;
 static UBYTE palette[8];
 static UBYTE con_Buf[1024];
@@ -180,12 +180,12 @@ fallback:
 	if(con_Win) {
 		con_TxW = con_Win->RPort->TxWidth;
 		con_TxH = con_Win->RPort->TxHeight;
-		if((con_GfxFont = newGfxFont(con_TxW, con_TxH)))
-			con_Font = con_Win->RPort->Font; //IFont;
+		// if((con_GfxFont = newGfxFont(con_TxW, con_TxH)))
+			// con_Font = con_Win->RPort->Font; //IFont;
 	}
 }
 
-static struct TextFont *freeGfxFont(struct TextFont *tf)
+static struct TextFont *delFont3(struct TextFont *tf)
 {
 	if(tf) {
 		UWORD numChar = 1 + tf->tf_HiChar - tf->tf_LoChar;
@@ -204,7 +204,7 @@ static struct TextFont *freeGfxFont(struct TextFont *tf)
 	return tf;
 }
 
-static struct TextFont *newGfxFont(int w, int h)
+static struct TextFont *newFont3(struct TextFont *tpl)
 {
 	static UBYTE font3_data[] = {
 	/* 32*/	0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
@@ -303,25 +303,29 @@ static struct TextFont *newGfxFont(int w, int h)
 	/*125*/	0xe7,0xc3,0x24,0xe7,0x24,0xc3,0xe7,0xff,
 	/*126*/	0xc3,0x99,0xf9,0xf3,0xe7,0xff,0xe7,0xff,
 	/*127*/ 0xFF,0x81,0x81,0x81,0x81,0x81,0x81,0xff};
-	const UWORD numChar = 127-32+1;
+	const UWORD numChar = 127-32+1, w = tpl->tf_XSize, h = tpl->tf_YSize;
 	UWORD modulo = ((w*numChar + 15)&-16)/8;
 	ULONG *charLoc = AllocMem(4*numChar, MEMF_CLEAR|MEMF_PUBLIC);
 	UBYTE *charDat = AllocMem(modulo*h, MEMF_CLEAR|MEMF_PUBLIC);
 	struct TextFont *ret = AllocMem(sizeof(struct TextFont), MEMF_CLEAR|MEMF_PUBLIC);
+	UBYTE *xPos = malloc(w), *yPos = malloc(h);
 	
-	if(charLoc && charDat && ret) {
+	if(charLoc && charDat && ret && xPos && yPos) {
 		UWORD c;
 	
 		ret->tf_YSize = h;
 		ret->tf_Flags = FPF_DESIGNED|FPF_ROMFONT; // $41
 		ret->tf_XSize = w;
-		ret->tf_Baseline = h-2;
+		ret->tf_Baseline = tpl->tf_Baseline;
 		ret->tf_LoChar = 32;
 		ret->tf_HiChar = 126;
 		ret->tf_Modulo = modulo;
 		ret->tf_CharData = charDat;
 		ret->tf_CharLoc  = charLoc;
-		// ret->tf_Accessors = 1;
+		ret->tf_Accessors = 1;
+		
+		for(c=0; c<=w; ++c) xPos[c] = 255>>((c*8)/w);
+		for(c=0; c<=h; ++c) yPos[c] = (c*8)/h;
 		
 		for(c=0; c<numChar; ++c) {
 			UWORD j;
@@ -333,16 +337,16 @@ static struct TextFont *newGfxFont(int w, int h)
 				UBYTE *d = &charDat[modulo*j + i/8];
 				UBYTE m = 128>>(i&7), v = 0;
 		
-				UWORD j0 = (8*j/h);
-				UWORD j1 = (8*(j+1)/h) - j0; 
-				for(j0 += 8*c, j1 += j0 + !j1; j0<j1; ++j0) v |= font3_data[j0];
+				UWORD j0 = yPos[j];
+				UWORD j1 = yPos[j+1] - j0; 
+				for(j0 += c*8, j1 += j0 + !j1; j0<j1; ++j0) v |= font3_data[j0];
 				
 				// v = 0xAA>>(j&1);
 				
 				for(i=0; i<w; ++i) {
-					UWORD i0 = (8*i)/w;
-					UWORD i1 = (8*(i+1))/w; if(i1==i0) ++i1;
-					UBYTE w = (255>>i0) ^ (255>>i1);
+					UBYTE m0 = xPos[i];
+					UBYTE m1 = xPos[i+1]; if(m1==m0) m1>>=1;
+					UBYTE w  = m0 ^ m1;
 					if(v & w) *d |= m;
 					if(!(m>>=1)) ++d, m=128;
 				}
@@ -350,6 +354,8 @@ static struct TextFont *newGfxFont(int w, int h)
 		}
 		return ret;
 	}
+	if(xPos)    free(xPos);
+	if(yPos)    free(yPos);
 	if(ret)     FreeMem(ret, sizeof(struct TextFont));
 	if(charDat) FreeMem(charDat, modulo*h);
 	if(charLoc) FreeMem(charLoc, 4*numChar);
@@ -557,41 +563,12 @@ static void _rst_cursor() {
 	}
 }
 
-static int _setFont(struct TextFont *tf)
+static void _setFont(struct TextFont *tf)
 {
-#if 1
-	if(con_Win && con_Unit) {
-		// int row = current_row, col = current_col, att = current_attr;
-		_flush(); if(0) return 0;
-		// Delay(50);
-		Forbid();
-		SetFont(con_Win->RPort, con_Unit->cu_Font = con_Win->IFont = tf);
-		Permit();
-		// Write(CONSOLE, CSI "0 p", 4);
-		// _gotoxy(row, col); set_attribute(NORMAL); 
-		// if(att!=NORMAL) set_attribute(att);
-		return 1;
-	} 
-	return 0;
-#else
-	struct Region *reg = NewRegion(), *old;
-	_flush(); if(0) return 0;
+	_flush();
 	Forbid();
-	SetFont(con_Win->RPort, con_Unit->cu_Font  = /*con_Win->IFont =*/ tf);
-	if(reg) {
-		int row = current_row, col = current_col, att = current_attr;
-		old = InstallClipRegion(con_Win->WLayer, reg);
-		Write(CONSOLE, "\033c" CSI "0 p", 6);
-		InstallClipRegion(con_Win->WLayer, old);
-		DisposeRegion(reg);
-		// since ESC c reset all the properties, restore them
-		init_console();
-		_gotoxy(row, col); set_attribute(NORMAL); 
-		if(att!=NORMAL) set_attribute(att);
-	}
+	SetFont(con_Win->RPort, con_Unit->cu_Font = con_Win->IFont = tf);
 	Permit();
-	return (int)reg;
-#endif
 }
 
 static int _getc(int timeout) 
@@ -837,8 +814,10 @@ static void exit_console()
 static void cleanup( )
 {
 	_cursor(1);
-	if(con_Font) {_setFont(con_Font); con_Font = NULL;}
-	if(con_GfxFont) con_GfxFont = freeGfxFont(con_GfxFont);
+	if(con_Font) {
+		_setFont(con_Font); con_Font = NULL;
+		delFont3(con_GfxFont); con_GfxFont = NULL;
+	}
 	if(con_Win && con_Title) 
 		SetWindowTitles(con_Win, con_Title, (void*)-1);
 	con_Win = NULL;
@@ -882,6 +861,9 @@ void initialize_screen(  )
 	move_cursor( screen_rows, 1 );
 	_flush();
    
+	if(con_Win && con_Unit)
+		con_GfxFont = newFont3(con_Font = con_Win->RPort->Font); //IFont;
+
 	/* find best palette if not already set */ 
 	_find_best_palette();
 	
@@ -971,8 +953,8 @@ void reset_screen(  )
 
 void clear_screen(  )
 {	
-// fprintf(stderr, "clear_screen");
-	_make_global_bg(default_bg); _putc(12); _flush();
+ // fprintf(stderr, "clear_screen: %d %d", current_bg, default_bg);
+	_make_global_bg(current_bg>=0 ? current_bg : default_bg); _putc(12); _flush();
 	current_row = 1;
 	current_col = 1;
 }                               /* clear_screen */
@@ -1102,14 +1084,13 @@ static UBYTE gfx_font = 0;
 void display_char( int c )
 {
 	static UBYTE old;
-	UBYTE gfx = gfx_font & 1;
-	if(gfx!=old) {
-		gfx_font = old = gfx;
-		if(!gfx && con_Font) _setFont(con_Font); else 
-		if( gfx && con_GfxFont && _setFont(con_GfxFont)) gfx_font = 3;
+	if(gfx_font != old && con_Font) {
+		if(old      == GRAPHICS_FONT) _setFont(con_Font);
+		if(gfx_font == GRAPHICS_FONT) _setFont(con_GfxFont);
+		old = gfx_font;
 	}
 	
-	if(gfx_font==1) {
+	if(gfx_font==GRAPHICS_FONT && !con_Font) {
 		/* https://www.inform-fiction.org/zmachine/standards/z1point1/sect16.html */
 		static UBYTE conv[] = {
 			' ','<','>','/',
@@ -1123,10 +1104,10 @@ void display_char( int c )
 			'#','#','#','#',
 			'#','#','#',' ',
 			' ',' ',' ',0xAF,
-			'_','|','|','=',
-			'[','[','[','C',
-			'I','H','N','M',
-			'i','l','X','+',
+			'_','|','|','.', 
+			':','-','=','+',
+			'*','#','%','@',
+			'|','|','X','+',
 			0xEE,'j','I','O',
 			'?','K','B',0xA7,
 			0xD8,'M',0xFC,'X',
@@ -1137,13 +1118,14 @@ void display_char( int c )
 			0xA5,'+','x','+',
 			'+','+','+'
 		};
-		switch(c) {
-			case 179: c = '|'; break; /* (ASCII 124) */
-			case 186: c = '#'; break; /* (ASCII 35) */
-			case 196: c = '-'; break; /* (ASCII 45) */
-			case 205: c = '='; break; /* (ASCII 61) */
-			default:  c = c>=32 && c<=126 ? conv[c-32] : '+'; break; /* (ASCII 43) */
-		}
+		c = c>=32 && c<=126 ? conv[c-32] : '+';
+		// switch(c) {
+			// case 179: c = '|'; break; /* (ASCII 124) */
+			// case 186: c = '#'; break; /* (ASCII 35) */
+			// case 196: c = '-'; break; /* (ASCII 45) */
+			// case 205: c = '='; break; /* (ASCII 61) */
+			// default:  c = c>=32 && c<=126 ? conv[c-32] : '+'; break; /* (ASCII 43) */
+		// }
 	}
 	
    _putc( c );
@@ -1560,22 +1542,9 @@ int codes_to_text( int c, char *s )
 {	
    if ( c > 154 && c < 224 )
    {
-      s[0] = zscii2latin1[c - 155];
-
-      if ( c == 220 )
-      {
-         s[1] = 'e';
-         s[2] = '\0';
-      }
-      else if ( c == 221 )
-      {
-         s[1] = 'E';
-         s[2] = '\0';
-      }
-      else
-      {
-         s[1] = '\0';
-      }
+      if (c == 220 || c == 221) return 1; /* oe OE */
+      *s++ = zscii2latin1[c - 155];
+	  *s   = '\0';
       return 0;
    }
    return 1;
@@ -1583,7 +1552,7 @@ int codes_to_text( int c, char *s )
 
 void set_font( int font_type )
 {
-	gfx_font = (gfx_font&~1) | (font == GRAPHICS_FONT);
+	gfx_font = font;
 }                               /* set_font */
 
 void file_cleanup( const char *file_name, int flag )
