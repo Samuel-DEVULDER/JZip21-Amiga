@@ -403,9 +403,15 @@ zobjectv4_t;
 
 /* Local defines */
 
+#if 1
 #define PAGE_SIZE 0x200
 #define PAGE_MASK 0x1FF
 #define PAGE_SHIFT 9
+#else
+#define PAGE_SIZE 0x1000
+#define PAGE_MASK (PAGE_SIZE-1)
+#define PAGE_SHIFT 12
+#endif
 
 #define STACK_SIZE 1024
 
@@ -446,10 +452,10 @@ zobjectv4_t;
 /* Data access macros */
 
 #define get_byte(offset) ((zbyte_t) datap[offset])
-#define get_word(offset) ((zword_t) (((zword_t) datap[offset] << 8) + (zword_t) datap[offset + 1]))
 #define set_byte(offset,value) datap[offset] = (zbyte_t) (value)
+#define get_word(offset) ((zword_t) (((zword_t) datap[offset] << 8) | (unsigned char)datap[offset + 1]))
 #define set_word(offset,value) datap[offset] = (zbyte_t) ((zword_t) (value) >> 8), datap[offset + 1] = (zbyte_t) ((zword_t) (value) & 0xff)
-
+#endif
 /* External data */
 
 extern int GLOBALVER;
@@ -479,8 +485,8 @@ extern int property_size_mask;
 extern zword_t stack[STACK_SIZE];
 extern zword_t sp;
 extern zword_t fp;
-extern zword_t frame_count;
 extern unsigned long pc;
+extern zword_t frame_count;
 extern int interpreter_state;
 extern int interpreter_status;
 
@@ -598,7 +604,7 @@ void script_new_line( void );
 /* getopt.c */
 
 #ifndef HAVE_GETOPT
-int getopt( int, char *[], const char * );
+int getopt( int, char * const *, const char * );
 #endif
 
 
@@ -677,7 +683,7 @@ zword_t load_variable( int );
 /* osdepend.c */
 
 int codes_to_text( int, char * );
-void fatal( const char * );
+void fatal( const char * ) __attribute__ ((noreturn));
 void file_cleanup( const char *, int );
 int fit_line( const char *, int, int );
 int get_file_name( char *, char *, int );

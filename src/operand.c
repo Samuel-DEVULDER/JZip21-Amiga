@@ -39,7 +39,24 @@
 
 zword_t load_operand( int type )
 {
-   zword_t operand;
+#if 0
+	zbyte_t t;
+	switch(type) {
+		default: 
+		return read_code_byte(  );	
+		
+		case 0: 
+		return read_code_word( );
+		
+		case 2: 
+		if((t = read_code_byte(  )))
+			return load_variable(t);
+		else {
+			return stack[sp++];
+		}
+	}
+#else
+   /*zword_t*/ zbyte_t operand;
 
    if ( type )
    {
@@ -69,7 +86,7 @@ zword_t load_operand( int type )
       return read_code_word(  );
    }
    return ( operand );
-
+#endif
 }                               /* load_operand */
 
 /*
@@ -107,6 +124,45 @@ void store_operand( zword_t operand )
 
 zword_t load_variable( int number )
 {
+#if 0
+	switch(number) {
+		case 0: return stack[sp];
+		case 1: return stack[fp];
+		case 2: return stack[fp-1];
+		case 3: return stack[fp-2];
+		case 4: return stack[fp-3];
+		case 5: return stack[fp-4];
+		case 6: return stack[fp-5];
+		case 7: return stack[fp-6];
+		case 8: return stack[fp-7];
+		case 9: return stack[fp-8];
+		case 10: return stack[fp-9];
+		case 11: return stack[fp-10];
+		case 12: return stack[fp-11];
+		case 13: return stack[fp-12];
+		case 14: return stack[fp-13];
+		case 15: return stack[fp-14];
+		case 16: return get_word( h_globals_offset + 0 );
+		case 17: return get_word( h_globals_offset + 2 );
+		case 18: return get_word( h_globals_offset + 4 );
+		case 19: return get_word( h_globals_offset + 6 );
+		case 20: return get_word( h_globals_offset + 8 );
+		case 21: return get_word( h_globals_offset + 10 );
+		case 22: return get_word( h_globals_offset + 12 );
+		case 23: return get_word( h_globals_offset + 14 );
+		case 24: return get_word( h_globals_offset + 16 );
+		case 25: return get_word( h_globals_offset + 18 );
+		case 26: return get_word( h_globals_offset + 20 );
+		case 27: return get_word( h_globals_offset + 22 );
+		case 28: return get_word( h_globals_offset + 24 );
+		case 29: return get_word( h_globals_offset + 26 );
+		case 30: return get_word( h_globals_offset + 28 );
+		case 31: return get_word( h_globals_offset + 30 );
+		case 32: return get_word( h_globals_offset + 32 );
+		default: 
+			return get_word( h_globals_offset + ( ( number - 16 ) * 2 ) );
+	}
+#else
    if ( number )
    {
       if ( number < 16 )
@@ -125,7 +181,7 @@ zword_t load_variable( int number )
       /* number = 0, get from top of stack */
       return stack[sp];
    }
-
+#endif
 }                               /* load_variable */
 
 /*

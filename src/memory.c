@@ -35,7 +35,7 @@
 typedef struct cache_entry
 {
    struct cache_entry *flink;
-   int page_number;
+   unsigned int page_key;
    zbyte_t data[PAGE_SIZE];
 }
 cache_entry_t;
@@ -52,7 +52,7 @@ static unsigned int current_data_page = 0;
 static cache_entry_t *current_data_cachep = NULL;
 
 static unsigned int calc_data_pages( void );
-static cache_entry_t *update_cache( int );
+static cache_entry_t *update_cache( unsigned int );
 
 /*
  * load_cache
@@ -94,7 +94,7 @@ void load_cache( void )
       fatal( "load_cache(): Insufficient memory to play game" );
    }
    cachep->flink = cache;
-   cachep->page_number = 0;
+   cachep->page_key = 0;
    cache = cachep;
 
    /* Calculate dynamic cache pages required */
@@ -136,9 +136,9 @@ void load_cache( void )
 
       if ( cachep != NULL )
       {
+         read_page( i, cachep->data );
          cachep->flink = cache;
-         cachep->page_number = i;
-         read_page( cachep->page_number, cachep->data );
+         cachep->page_key = i<<PAGE_SHIFT;
          cache = cachep;
       }
    }
@@ -186,13 +186,19 @@ void unload_cache( void )
 
 zword_t read_code_word( void )
 {
+#ifdef __mc68000__
+	union {zword_t w; zbyte_t hilo[2];} t;
+	t.hilo[0] = read_code_byte();
+	t.hilo[1] = read_code_byte();
+	return t.w;
+#else
    zword_t w;
 
    w = ( zword_t ) read_code_byte(  ) << 8;
    w |= ( zword_t ) read_code_byte(  );
 
    return ( w );
-
+#endif
 }                               /* read_code_word */
 
 /*
@@ -204,35 +210,25 @@ zword_t read_code_word( void )
 
 zbyte_t read_code_byte( void )
 {
-   unsigned int page_number, page_offset;
-
-   /* Calculate page and offset values */
-
-   page_number = ( unsigned int ) ( pc >> PAGE_SHIFT );
-   page_offset = ( unsigned int ) pc & PAGE_MASK;
-
-   /* Load page into translation buffer */
-
-   if ( page_number != current_code_page )
-   {
-      current_code_cachep = update_cache( page_number );
-      current_code_page = page_number;
-   }
-
-   /* Update the PC */
-
-   pc++;
-
-   /* Return byte from page offset */
-
-   if ( !current_code_cachep )
-   {
-      fatal
-            ( "read_code_byte(): read from non-existant page!\n\t(Your dynamic memory usage _may_ be over 64k in size!)" );
-   }
-
-   return ( current_code_cachep->data[page_offset] );
-
+	/* Calculate page and offset values && update PC */
+	unsigned int page_key = pc & ~PAGE_MASK;
+	
+	/* Load page into translation buffer */
+	if ( page_key - current_code_page )
+	{
+		if ( !(current_code_cachep = update_cache( page_key )) )
+		{
+			fatal
+					( "read_code_byte(): read from non-existant page!\n\t(Your dynamic memory usage _may_ be over 64k in size!)" );
+		}
+		current_code_page = page_key = pc & ~PAGE_MASK;
+	}
+	
+	/* Return byte & update PC */
+	page_key ^= pc;
+	{zbyte_t ret = current_code_cachep->data[page_key];
+	++pc;
+	return ret;}
 }                               /* read_code_byte */
 
 /*
@@ -244,13 +240,19 @@ zbyte_t read_code_byte( void )
 
 zword_t read_data_word( unsigned long *addr )
 {
+#ifdef __mc68000__
+	union {zword_t w; zbyte_t hilo[2];} t;
+	t.hilo[0] = read_data_byte( addr );
+	t.hilo[1] = read_data_byte( addr );
+	return t.w;
+#else
    zword_t w;
 
    w = ( zword_t ) read_data_byte( addr ) << 8;
    w |= ( zword_t ) read_data_byte( addr );
 
    return ( w );
-
+#endif
 }                               /* read_data_word */
 
 /*
@@ -262,48 +264,36 @@ zword_t read_data_word( unsigned long *addr )
 
 zbyte_t read_data_byte( unsigned long *addr )
 {
-   unsigned int page_number, page_offset;
-   zbyte_t value = 0;
-
-   /* Check if byte is in non-paged cache */
-
-   if ( *addr < ( unsigned long ) data_size )
-   {
-      value = datap[*addr];
-   }
-   else
-   {
-      /* Calculate page and offset values */
-
-      page_number = ( int ) ( *addr >> PAGE_SHIFT );
-      page_offset = ( int ) *addr & PAGE_MASK;
-
-      /* Load page into translation buffer */
-
-      if ( page_number != current_data_page )
-      {
-         current_data_cachep = update_cache( page_number );
-         current_data_page = page_number;
-      }
-
-      /* Fetch byte from page offset */
-
-      if ( current_data_cachep )
-      {
-         value = current_data_cachep->data[page_offset];
-      }
-      else
-      {
-         fatal( "read_data_byte(): Fetching data from invalid page!" );
-      }
-   }
-
-   /* Update the address */
-
-   ( *addr )++;
-
-   return ( value );
-
+	zbyte_t value = 0;
+	unsigned int page_key = *addr;
+	
+	/* Check if byte is in non-paged cache */
+	
+	if ( page_key < ( unsigned long ) data_size )
+	{
+		/* fetch value & update address */
+		value = datap[page_key];
+	}
+	else
+	{
+	/* Calculate page and offset values */
+		page_key &= ~PAGE_MASK;
+		/* Load page into translation buffer */
+		if ( page_key != current_data_page )
+		{
+			if(!(current_data_cachep = update_cache( page_key ))) 
+			{
+				fatal( "read_data_byte(): Fetching data from invalid page!" );
+			}
+			current_data_page = page_key = *addr & ~PAGE_MASK;
+		}
+	
+		/* fetch value & update address */
+		value = current_data_cachep->data[page_key ^= (*addr)];
+	}
+	++*addr;
+	
+	return ( value );
 }                               /* read_data_byte */
 
 /*
@@ -371,29 +361,29 @@ static unsigned int calc_data_pages( void )
  *
  */
 
-static cache_entry_t *update_cache( int page_number )
+static cache_entry_t *update_cache( unsigned int page_key )
 {
    cache_entry_t *cachep, *lastp;
 
    /* Search the cache chain for the page */
 
    for ( lastp = cache, cachep = cache;
-         cachep->flink != NULL && cachep->page_number && cachep->page_number != page_number;
+         cachep->page_key && cachep->page_key != page_key && cachep->flink != NULL;
          lastp = cachep, cachep = cachep->flink )
       ;
 
    /* If no page in chain then read it from disk */
 
-   if ( cachep->page_number != page_number )
+   if ( cachep->page_key != page_key )
    {
       /* Reusing last cache page, so invalidate cache if page was in use */
-      if ( cachep->flink == NULL && cachep->page_number )
+      if ( cachep->flink == NULL && cachep->page_key )
       {
-         if ( current_code_page == ( unsigned int ) cachep->page_number )
+         if ( current_code_page == cachep->page_key )
          {
             current_code_page = 0;
          }
-         if ( current_data_page == ( unsigned int ) cachep->page_number )
+         if ( current_data_page == cachep->page_key )
          {
             current_data_page = 0;
          }
@@ -401,8 +391,8 @@ static cache_entry_t *update_cache( int page_number )
 
       /* Load the new page number and the page contents from disk */
 
-      cachep->page_number = page_number;
-      read_page( page_number, cachep->data );
+      cachep->page_key = page_key;
+      read_page( page_key>>PAGE_SHIFT, cachep->data );
    }
 
    /* If page is not at front of cache chain then move it there */
