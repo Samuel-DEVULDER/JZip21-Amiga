@@ -137,8 +137,9 @@ static struct Window* GetWindow(BPTR file, struct ConUnit **unit)
 		char buf[sizeof(struct InfoData)+3];
 		struct InfoData *data = (struct InfoData*)BADDR(MKBADDR(&buf[3]));
 		if(SendPkt13(port, 	ACTION_DISK_INFO, MKBADDR(data),0,0,0,0,0,0)) {
-			if(unit) *unit = data->id_InUse ? 
-				((struct IOStdReq *) data->id_InUse)->io_Unit : (void*)NULL;
+			if(unit) *unit = (struct ConUnit*)(data->id_InUse ? 
+				((struct IOStdReq *) data->id_InUse)->io_Unit : 
+				NULL);
 			return (struct Window*)data->id_VolumeNode;
 		}
 	}
@@ -345,8 +346,8 @@ static struct TextFont *newFont3(struct TextFont *tpl)
 				
 				for(i=0; i<w; ++i) {
 					UBYTE m0 = xPos[i];
-					UBYTE m1 = xPos[i+1]; if(m1==m0) m1>>=1;
-					UBYTE w  = m0 ^ m1;
+					UBYTE m1 = xPos[i+1];
+					UBYTE w  = m0 ^ m1; if(!w) w = m0 ^ (m0>>1);
 					if(v & w) *d |= m;
 					if(!(m>>=1)) ++d, m=128;
 				}
@@ -365,7 +366,7 @@ static struct TextFont *newFont3(struct TextFont *tpl)
 /* getopt linkages */
 
 extern int optind;
-extern const char *optarg;
+extern char *optarg;
 extern ZINT16 default_fg, default_bg;
 
 #ifdef HARD_COLORS
@@ -793,6 +794,7 @@ void set_colours( zword_t foreground, zword_t background )
 
 static void init_console()
 {
+	_puts("\033c");
 	_puts(CSI "2;12;11{");     /* report mouse click & window resize & close */
 	_puts(CSI "0m"); /* default color */
 	_puts(CSI "\x30\x20\x70"); /* cursor_off */
@@ -848,7 +850,7 @@ void initialize_screen(  )
 	//_putf(CSI "%d\x74\x9B%d\x75", screen_rows, screen_cols);
 
 
-	_puts("\033c");
+	// _puts("\033c");
 	clear_screen(  );
 	row = screen_rows / 2 - 1;
 	col = ( screen_cols - ( sizeof ( JZIPVER ) - 1 ) ) / 2;
@@ -859,7 +861,7 @@ void initialize_screen(  )
 	move_cursor( row, col );
 	display_string( "The story is loading..." );
 	move_cursor( screen_rows, 1 );
-	_flush();
+	_cursor(1); _flush();_cursor(0);
    
 	if(con_Win && con_Unit)
 		con_GfxFont = newFont3(con_Font = con_Win->RPort->Font); //IFont;
@@ -988,7 +990,7 @@ void clear_text_window( void)
 {
 	int row, col;
 	get_cursor_position( &row, &col );
-	_gotoxy(status_size+1,1); 
+	move_cursor(status_size+1,1); 
 	_make_global_bg(current_bg); _puts(CSI "\x4A"); /* Erase in Display	(only to end of display) */
 	move_cursor( row, col );
 }                               /* clear_text_window */
@@ -1013,8 +1015,43 @@ void move_cursor( row, col )
    int row;
    int col;
 {
-	// fprintf(stderr, "gxy -> %d %d", row, col);
-	_gotoxy(row, col);
+	// if(con_Unit) current_row = con_Unit->cu_YCCP, current_col = con_Unit->cu_XCCP;
+	if(col > screen_cols) col = screen_cols;
+	if(row > screen_rows) row = screen_rows;
+	// fprintf(stderr, "gxy -> %d %d (%d %d)", row, col, current_row, current_col);
+	if(row==current_row) {
+		int i = col - current_col;
+		if(col==1) 
+			_putc('\r');
+		else switch(i) {
+			case  0: break;
+			case  1: _puts(CSI "\x43"); break;
+			case -1: _putc(8); break; //_puts(CSI "\x44"); break;
+			default:
+			if(i>0) _putf(CSI "%d\x43", i);
+			else    _putf(CSI "%d\x44", -i);
+		}
+	} else if(col==1) {
+		int i = row - current_row;
+		switch(i) {
+			case  1: _putc('\n'); break; //CSI "\x45"); break;
+			case -1: _puts(CSI "\x46"); break;
+			default:
+			if(i>0) _putf(CSI "%d\x45", i);
+			else    _putf(CSI "%d\x46", -i);
+		}
+	} else if(col==current_col) {
+		int i = row - current_row;
+		switch(i) {
+			case  1: _puts(CSI "\x42"); break;
+			case -1: _puts(CSI "\x41"); break;
+			default:
+			if(i>0) _putf(CSI "%d\x42", i);
+			else    _putf(CSI "%d\x41", -i);
+		}
+	} else {
+		_gotoxy(row, col);
+	}
 	current_row = row;
 	current_col = col;
 }                               /* move_cursor */
@@ -1023,8 +1060,9 @@ void get_cursor_position( row, col )
    int *row;
    int *col;
 {
-   *row = current_row;
-   *col = current_col;
+	// if(con_Unit) current_row = con_Unit->cu_YCCP, current_col = con_Unit->cu_XCCP;
+	*row = current_row;
+	*col = current_col;
 }                               /* get_cursor_position */
 
 void save_cursor_position(  )
@@ -1128,11 +1166,23 @@ void display_char( int c )
 		// }
 	}
 	
-   _putc( c );
+	switch(c) {
+		case 7: break;
+		case 8: if(current_col) --current_col; break;
+		case 10: current_col = 1;
+			if(++current_row > screen_rows)	current_row = screen_rows;
+			break;
+		case 13: current_col = 1; break;
+		case 12: current_col = current_row = 1; break;
+		default:
+			if (++current_col > screen_cols ) {
+				current_col = screen_cols;
+				return;
+			}
+			break;
+	}
 
-   if ( ++current_col > screen_cols )
-      current_col = screen_cols;
-
+	_putc( c );
 }                               /* display_char */
 
 void scroll_line( )
@@ -1151,8 +1201,6 @@ void scroll_line( )
 		move_cursor( row, 1 );
 	}
 	
-	current_col = 1;
-	if ( ++current_row > screen_rows ) current_row = screen_rows;	
 	_flush();
 }                               /* scroll_line */
 
