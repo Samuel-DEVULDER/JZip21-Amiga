@@ -455,7 +455,6 @@ zobjectv4_t;
 #define set_byte(offset,value) datap[offset] = (zbyte_t) (value)
 #define get_word(offset) ((zword_t) (((zword_t) datap[offset] << 8) | (unsigned char)datap[offset + 1]))
 #define set_word(offset,value) datap[offset] = (zbyte_t) ((zword_t) (value) >> 8), datap[offset + 1] = (zbyte_t) ((zword_t) (value) & 0xff)
-#endif
 /* External data */
 
 extern int GLOBALVER;
