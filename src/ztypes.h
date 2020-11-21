@@ -453,7 +453,22 @@ zobjectv4_t;
 
 #define get_byte(offset) ((zbyte_t) datap[offset])
 #define set_byte(offset,value) datap[offset] = (zbyte_t) (value)
-#define get_word(offset) ((zword_t) (((zword_t) datap[offset] << 8) | (unsigned char)datap[offset + 1]))
+#ifdef __mc68000__
+#ifdef __GNUC__
+#define get_word(offset) ({zbyte_t *p=&datap[offset]; zword_t r; asm volatile("move%.b (%1)+,%0\n\tlsl%.w #8,%0\n\tmove%.b (%1),%0" : "=d" (r), "+a" (p) ); r;})
+#else
+static inline zword_t _get_word(zbyte_t *p)
+{
+	zword_t r = *p++;
+	r <<= 8;
+	r |= *p;
+	return r;
+}
+#define get_word(offset) _get_word(&datap[offset])
+#endif
+#else
+#define get_word(offset) (zword_t) (((zword_t) datap[offset] << 8) | (unsigned char)datap[offset + 1]) 
+#endif
 #define set_word(offset,value) datap[offset] = (zbyte_t) ((zword_t) (value) >> 8), datap[offset + 1] = (zbyte_t) ((zword_t) (value) & 0xff)
 /* External data */
 
@@ -484,7 +499,13 @@ extern int property_size_mask;
 extern zword_t stack[STACK_SIZE];
 extern zword_t sp;
 extern zword_t fp;
+#if defined(__GNUC__) && defined(__mc68000__) && 0
+register unsigned long pc asm("d7");
+#define used(x) asm volatile("" : "+r" (x))
+#else
 extern unsigned long pc;
+#define used(x) //do {} while(0)
+#endif
 extern zword_t frame_count;
 extern int interpreter_state;
 extern int interpreter_status;
