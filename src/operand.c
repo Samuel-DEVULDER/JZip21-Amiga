@@ -52,14 +52,14 @@ zword_t load_operand( int type )
 	"	rts\n"
 	".l%=:\n"
 	"	jbsr	%1\n"
-	"	moveq	#0,d1\n"
-	"	move%.b d0,d1\n"
+	"	and%.w  #255,d0\n"
+	"	ext.l   d0\n"
 	"	jbne	%3\n"
-	"	move%.w	%5,d1\n"
+	"	move%.w	%5,d0\n"
 	"	addq.w	#1,%5\n"
+	"	add%.l	d0,d0\n"
 	"	lea		%4,a0\n"
-	"	add%.l	d1,d1\n"
-	"	move%.w	(a0,d1.w),d0\n"
+	"	move%.w	(a0,d0.l),%0\n"
 	: "+d" (d0)
 	: "m" (read_code_byte), "m" (read_code_word), "m" (load_variable), "m" (stack), "mr" (sp) : "a0", "d1", "a1", "cc", "memory");
 	return d0;
