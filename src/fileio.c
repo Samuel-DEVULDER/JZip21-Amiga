@@ -351,23 +351,23 @@ void read_page( int page, void *buffer )
 #ifdef USE_ZLIB
    if ( gzread( gfp, buffer, PAGE_SIZE ) == -1 )
 #else
-   if ( fread( buffer, PAGE_SIZE, 1, gfp ) != 1 )
+   if ( fread( buffer, 1, PAGE_SIZE, gfp ) != PAGE_SIZE )
 #endif
    {
       /* Read failed. Are we in the last page? */
       file_size = ( unsigned long ) h_file_size *story_scaler;
 
-      pages = ( unsigned int ) ( ( unsigned long ) file_size / PAGE_SIZE );
-      offset = ( unsigned int ) ( ( unsigned long ) file_size & PAGE_MASK );
+      pages = ( unsigned int ) ( (( unsigned long ) file_size) / PAGE_SIZE );
+      offset = ( unsigned int ) ( (( unsigned long ) file_size) & PAGE_MASK );
 
-      if ( ( unsigned int ) page == pages )
+      if (offset && ( unsigned int ) page == pages )
       {
          /* Read partial page if this is the last page in the game file */
          jz_seek( gfp, story_offset + ( long ) page * PAGE_SIZE, SEEK_SET );
 #ifdef USE_ZLIB
          if ( gzread( gfp, buffer, offset ) == -1 )
 #else
-         if ( fread( buffer, offset, 1, gfp ) != 1 )
+         if ( fread( buffer, 1, offset, gfp ) != offset	 )
 #endif
          {
             fatal( "read_page(): Zcode file read error" );
@@ -391,8 +391,10 @@ void z_verify( void )
    unsigned int pages, offset;
    unsigned int start, end, i, j;
    zword_t checksum = 0;
-   zbyte_t buffer[PAGE_SIZE] = { 0 };
+   //zbyte_t buffer[PAGE_SIZE] = { 0 };
    char szBuffer[6] = { 0 };
+   zbyte_t *buffer;
+   if(!(buffer = calloc(PAGE_SIZE,1))) fatal("out of memory");
 
    /* Print version banner */
 
@@ -481,6 +483,7 @@ void z_verify( void )
 
    conditional_jump( checksum == h_checksum );
 
+	free(buffer);
 }                               /* z_verify */
 
 
@@ -906,7 +909,7 @@ static int save_restore( const char *file_name, int flag )
       }
 
       fp = stack[sp++];
-      pc = stack[sp++];
+      pc = stack[sp++]; 
       pc += ( unsigned long ) stack[sp++] * PAGE_SIZE;
 
       /* Save or restore writeable game data area */

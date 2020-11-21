@@ -90,7 +90,9 @@ int __stdargs main( int argc, char *argv[] )
 
 static void configure( zbyte_t min_version, zbyte_t max_version )
 {
-   zbyte_t header[PAGE_SIZE], second;
+   //zbyte_t header[PAGE_SIZE], second;
+   zbyte_t *header = malloc(PAGE_SIZE), second;
+   if(!header) fatal("Out of memory!");
 
    read_page( 0, header );
    datap = header;
@@ -166,5 +168,5 @@ static void configure( zbyte_t min_version, zbyte_t max_version )
       h_unicode_table = get_word( H_UNICODE_TABLE );
    }
    datap = NULL;
-
+	free(header);
 }                               /* configure */

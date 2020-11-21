@@ -90,7 +90,8 @@ int z_call( int argc, zword_t * argv, int type )
    /* Create FP for new subroutine and load new PC */
 
    fp = sp - 1;
-   pc = ( unsigned long ) argv[0] * story_scaler;
+   pc = ( unsigned long ) argv[0] * story_scaler; 
+
 #if defined(USE_QUETZAL)
    ++frame_count;
 #endif
@@ -141,7 +142,7 @@ void z_ret( zword_t value )
 
    argc = stack[sp++];
    fp = stack[sp++];
-   pc = stack[sp++];
+   pc = stack[sp++]; 
    pc += ( unsigned long ) stack[sp++] * PAGE_SIZE;
 #if defined(USE_QUETZAL)
    --frame_count;
@@ -167,7 +168,6 @@ void z_ret( zword_t value )
          store_operand( value );
       }
    }
-
 }                               /* z_ret */
 
 /*
