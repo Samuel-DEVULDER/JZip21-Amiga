@@ -1,28 +1,53 @@
 OBJDIR = objs
 MKDIR  = mkdir
 
+OS:=$(shell uname)
+
+ifeq ($(OS),)
+BASEDIR :=
+else
+BASEDIR := ..
+endif
+
 ifneq ($(FROM_OBJDIR),1)
 
-all: $(addprefix $(OBJDIR)/,jzip jzexe)
-	-@cp  $^ .
+all: jzip
 
+jzip: $(OBJDIR)/jzip
+	-@cp  $^ $@
+
+%: $(OBJDIR)
 %: $(OBJDIR)/%
 	
-$(OBJDIR)/%: $(OBJDIR)
-	$(MAKE) --no-print-directory -f ../Makefile -C $(OBJDIR) FROM_OBJDIR=1 $*
+$(OBJDIR)/%: 
+	$(MAKE) --no-print-directory -f "$(BASEDIR)/Makefile" -C $(OBJDIR) FROM_OBJDIR=1 $*
 	
 $(OBJDIR):
 	-$(MKDIR) $(OBJDIR)
 	
 else
 
-Makefile: all
+Makefile:
 
-VPATH = ../src
-include ../src/amiga.mak
+VPATH = $(BASEDIR)/src
+include $(BASEDIR)/src/amiga.mak
 
+CC = gcc
+ifeq ($(patsubst MSYS%,WIN,$(patsubst CYGWIN%,WIN,$(OS))),WIN)
 CC = /opt/amiga/bin/m68k-amigaos-gcc
-LDFLAGS = -s -mcrt=nix13
+endif
+
+ifeq ($(PROFILE),1)
+CFLAGS += -g -pg -fno-inline
+CFLAGS := $(CFLAGS:-fomit-frame-pointer=)
+LDFLAGS += -g -pg 
+endif
+
+ifeq ($(OS),AmigaOS)
+CFLAGS +=
+LIBS += -L gg:lib/libnix -lstubs
+# CODE_MODEL = -fbaserel
+endif
 #-noixemul
 
 endif

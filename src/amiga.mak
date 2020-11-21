@@ -2,8 +2,11 @@
 #    (It's really just the Unix makefile with one or two small changes)
 
 CC = gcc
-CFLAGS =  -g -Wall -mregparm -m68000 -O3 -fomit-frame-pointer -c -DPOSIX -DAMIGA -DLOUSY_RANDOM -DHARD_COLORS
-LDFLAGS = -g
+CODE_MODEL = -fbaserel 
+#-fbaserel crashes under KS1.3
+CFLAGS = -g -Wall -funroll-loops -mregparm -m68000 -O3 -fomit-frame-pointer $(CODE_MODEL) -c -DPOSIX -DAMIGA -DLOUSY_RANDOM -DHARD_COLORS
+# - free (1261) -fno-function-cse (1123) -fno-inline 
+LDFLAGS = -g -mcrt=nix13 $(CODE_MODEL)
 LIBS = 
 
 INC = ztypes.h
@@ -11,7 +14,7 @@ OBJS = jzip.o control.o extern.o fileio.o input.o interpre.o license.o math.o \
 	memory.o object.o operand.o osdepend.o property.o quetzal.o screen.o \
 	text.o variable.o amigaio.o getopt.o
 
-all: jzip jzexe
+all: jzip
 
 jzexe : jzexe.h
 	$(CC) -o $@ $(LDFLAGS) $(OBJS)
@@ -19,10 +22,12 @@ jzexe : jzexe.h
 jzip : $(OBJS)
 	$(CC) -o $@ $(LDFLAGS) $(OBJS) $(LIBS)
 	
-%.s:%.c
-	$(CC) -S -o $@ $< $(CFLAGS)
+.phony: %.s
+%.s: %.c %.o $(INC)
+	$(CC) -S -o $@ $< $(CFLAGS) -fverbose-asm
+	less $@
 
 $(OBJS): $(INC) extern.c amiga.mak
 
 clean :
-	-rm *.o jzip jzexe
+	-rm *.o jzip
