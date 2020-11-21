@@ -187,10 +187,23 @@ void unload_cache( void )
 zword_t read_code_word( void )
 {
 #ifdef __mc68000__
+#ifdef __GNUC__
+	register zword_t d0 asm("d0");
+	asm volatile (
+	"\tjbsr %1\n"
+	"\tlsl.w #8,%0\n"
+	"\tmove.w %0,-(sp)\n"
+	"\tjbsr %1\n"
+	"\tand.w #255,%0\n"
+	"\tor.w (sp)+,%0\n"
+	: "=d" (d0) : "m" (read_code_byte) : "cc");
+	return d0;
+#else
 	union {zword_t w; zbyte_t hilo[2];} t;
 	t.hilo[0] = read_code_byte();
 	t.hilo[1] = read_code_byte();
 	return t.w;
+#endif
 #else
    zword_t w;
 
@@ -227,7 +240,7 @@ zbyte_t read_code_byte( void )
 	/* Return byte & update PC */
 	page_key ^= pc;
 	{zbyte_t ret = current_code_cachep->data[page_key];
-	++pc;
+	++pc; 
 	return ret;}
 }                               /* read_code_byte */
 
@@ -241,10 +254,26 @@ zbyte_t read_code_byte( void )
 zword_t read_data_word( unsigned long *addr )
 {
 #ifdef __mc68000__
+#ifdef __GNUC__
+	register unsigned long *a0 asm("a0") = addr;
+	register int ret asm("d0");
+	asm volatile (
+	"\tmove.l %2,-(sp)\n"
+	"\tjbsr %1\n"
+	"\tmove.l (sp),%2\n"
+	"\tlsl.w #8,%0\n"
+	"\tmove.l %0,(sp)\n"
+	"\tjbsr %1\n"
+	"\tand.w #255,d0\n"
+	"\tor.l (sp)+,d0\n"
+	: "=d" (ret) : "m" (read_data_byte), "a" (a0) : "cc");
+	return ret;
+#else
 	union {zword_t w; zbyte_t hilo[2];} t;
-	t.hilo[0] = read_data_byte( addr );
-	t.hilo[1] = read_data_byte( addr );
+	t.hilo[0] = read_data_byte(addr);
+	t.hilo[1] = read_data_byte(addr);
 	return t.w;
+#endif
 #else
    zword_t w;
 
