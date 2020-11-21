@@ -13,6 +13,7 @@
 #include <stdlib.h>
 #include <stdarg.h>
 #include <strings.h>
+#include <signal.h>
 #include <sys/signal.h>
 // #include <unistd.h>
  
@@ -1907,3 +1908,24 @@ void process_arguments( int argc, char *argv[] )
    }
 
 }                               /* process_arguments */
+
+#if defined(__GNUC__) && defined(__mc68000__)
+__stdargs int __mulsi3(int a, int b)
+{
+	register int c asm("d0");
+	asm volatile(
+	"	lea		4(sp),a0\n"
+	"	move%.w	(a0)+,d0\n"
+	"	move%.w	(a0)+,d1\n"
+	"	mulu%.w	(a0)+,d1\n"
+	"	mulu%.w	(a0),d0\n"
+	"	add%.w	d1,d0\n"
+	"	move%.w	(a0),d1\n"
+	"	swap	d0\n"
+	"	mulu%.w	-4(a0),d1\n"
+	"	clr%.w	d0\n"
+	"	add%.l	d1,d0\n"
+	: "=d" (c) :  : "d1", "a0");
+	return c;
+}
+#endif
