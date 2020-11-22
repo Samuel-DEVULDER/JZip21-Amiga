@@ -1030,10 +1030,10 @@ void z_print_obj( zword_t obj )
 
 void z_print( void )
 {
-
+   unsigned long pc_ = pc;
    /* Decode and output text at PC */
-   decode_text( &pc );
-
+   decode_text( &pc_ );
+   GCC650_FIX(pc = pc_); 
 }                               /* z_print */
 
 /*

@@ -499,12 +499,13 @@ extern int property_size_mask;
 extern zword_t stack[STACK_SIZE];
 extern zword_t sp;
 extern zword_t fp;
-#if defined(__GNUC__) && defined(__mc68000__) && 0
-register unsigned long pc asm("d7");
-#define used(x) asm volatile("" : "+r" (x))
+#if defined(__GNUC__) && defined(__mc68000__)  && 0
+register unsigned long pc asm("d5");
+#define EXPORT_GLOBAL_REGS asm volatile("" : "+r" (pc))
+#define GCC650_FIX(x) x; EXPORT_GLOBAL_REGS
 #else
 extern unsigned long pc;
-#define used(x) //do {} while(0)
+#define GCC650_FIX(x) (x)
 #endif
 extern zword_t frame_count;
 extern int interpreter_state;

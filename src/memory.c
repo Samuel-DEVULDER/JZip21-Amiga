@@ -224,24 +224,46 @@ zword_t read_code_word( void )
 zbyte_t read_code_byte( void )
 {
 	/* Calculate page and offset values && update PC */
+#if defined(__GNUC__) && defined(__mc68000__)
+	register unsigned page_key asm("d0") = pc;
+	asm volatile("andi%.w %1,%0" : "+d" (page_key): "J" (~PAGE_MASK));
+#else
 	unsigned int page_key = pc & ~PAGE_MASK;
+
+#endif
 	
+		
 	/* Load page into translation buffer */
 	if ( page_key - current_code_page )
 	{
+#if defined(__GNUC__) && defined(__mc68000__)
+		asm volatile("move.l %0,-(sp)" : : "r" (page_key) : "sp");
+#endif
 		if ( !(current_code_cachep = update_cache( page_key )) )
 		{
 			fatal
 					( "read_code_byte(): read from non-existant page!\n\t(Your dynamic memory usage _may_ be over 64k in size!)" );
 		}
-		current_code_page = page_key = pc & ~PAGE_MASK;
+#if defined(__GNUC__) && defined(__mc68000__)
+		asm volatile("move.l (sp)+,%0" : "=r" (page_key) : : "sp");
+#else
+		page_key = pc & ~PAGE_MASK;
+#endif
+		current_code_page = page_key;
 	}
 	
 	/* Return byte & update PC */
-	page_key ^= pc;
-	{zbyte_t ret = current_code_cachep->data[page_key];
-	++pc; 
-	return ret;}
+#if defined(__GNUC__) && defined(__mc68000__)
+	asm volatile(
+	"	sub%.l	%1,%0\n"
+	"	addq%.l	#1,%1\n"
+	"	neg%.l	%0\n"
+	: "+d" (page_key)
+	: "m" (pc));
+#else
+	page_key ^= pc++;
+#endif
+	return current_code_cachep->data[page_key];
 }                               /* read_code_byte */
 
 /*

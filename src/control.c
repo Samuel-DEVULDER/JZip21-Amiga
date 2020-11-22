@@ -90,7 +90,7 @@ int z_call( int argc, zword_t * argv, int type )
    /* Create FP for new subroutine and load new PC */
 
    fp = sp - 1;
-   pc = ( unsigned long ) argv[0] * story_scaler; 
+   GCC650_FIX(pc = ( unsigned long ) argv[0] * story_scaler);
 
 #if defined(USE_QUETZAL)
    ++frame_count;
@@ -142,8 +142,8 @@ void z_ret( zword_t value )
 
    argc = stack[sp++];
    fp = stack[sp++];
-   pc = stack[sp++]; 
-   pc += ( unsigned long ) stack[sp++] * PAGE_SIZE;
+   GCC650_FIX(pc = stack[sp++]); 
+   GCC650_FIX(pc += ( unsigned long ) stack[sp++] * PAGE_SIZE);
 #if defined(USE_QUETZAL)
    --frame_count;
 #endif
@@ -180,7 +180,7 @@ void z_ret( zword_t value )
 void z_jump( zword_t offset )
 {
 
-   pc = ( unsigned long ) ( pc + ( ZINT16 ) offset - 2 );
+   GCC650_FIX(pc = ( unsigned long ) ( pc + ( ZINT16 ) offset - 2 ));
 
 }                               /* z_jump */
 
@@ -262,7 +262,7 @@ void z_restart( void )
 
    /* Load start PC, SP and FP */
 
-   pc = h_start_pc;
+   GCC650_FIX(pc = h_start_pc);
    sp = STACK_SIZE;
    fp = STACK_SIZE - 1;
 #if defined (USE_QUETZAL)

@@ -364,13 +364,13 @@ int restore_quetzal( FILE * sfp, FILE * gfp )
             }
             if ( ( x = get_c( sfp ) ) == EOF )
                return FALSE;
-            pc = ( ul_t ) x << 16;
+            GCC650_FIX(pc = ( ul_t ) x << 16);
             if ( ( x = get_c( sfp ) ) == EOF )
                return FALSE;
-            pc |= ( ul_t ) x << 8;
+            GCC650_FIX(pc |= ( ul_t ) x << 8);
             if ( ( x = get_c( sfp ) ) == EOF )
                return FALSE;
-            pc |= ( ul_t ) x;
+            GCC650_FIX(pc |= ( ul_t ) x);
             for ( i = 13; ( ul_t ) i < currlen; ++i ) 
                ( void ) get_c( sfp ); /* skip rest of chunk */
             break;
@@ -566,6 +566,7 @@ int restore_quetzal( FILE * sfp, FILE * gfp )
       output_line( "error: no stack chunk in file." );
    if ( !( progress & GOT_MEMORY ) )
       output_line( "error: no memory chunk in file." );
+   
    return ( progress == GOT_ALL );
 }
 
