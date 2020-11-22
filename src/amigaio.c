@@ -43,6 +43,13 @@
 
 #define TITLE 		JZIPVER " ("JZIPRELDATE ") by " JZIPAUTHOR 
 
+#ifdef __SASC
+__near
+#endif
+unsigned long __stack = 16*1024; /* 165kb stack should be enough */
+// unsigned long __stk_minframe = 16*1024;
+// unsigned long __stk_safezone = 16*1024;
+
 /* some of amigaos stuff */
 #define CSI "\x9b"				/* https://wiki.amigaos.net/wiki/Console_Device */
 static BPTR CONSOLE; 			/* console file */
@@ -795,7 +802,7 @@ void set_colours( zword_t foreground, zword_t background )
 
 static void init_console()
 {
-	_puts("\033c");
+	// _puts("\033c");
 	_puts(CSI "2;12;11{");     /* report mouse click & window resize & close */
 	_puts(CSI "0m"); /* default color */
 	_puts(CSI "\x30\x20\x70"); /* cursor_off */
@@ -807,7 +814,7 @@ static void init_console()
 static void exit_console()
 {
 	_puts(CSI "2;12;11}");     /* report mouse click & window resize & close */
-	_puts(CSI "0m"); /* default color */
+	_puts(CSI "0;>m"); /* default color */
 	_puts(CSI "\x32\x30\x68"); /* \n=chr(13) chr(10) */
 	_puts(CSI "\x3F\x37\x68"); /* autowrap on */
 	_puts(CSI "\x3E\x31\x68"); /* scroll on */
@@ -826,16 +833,24 @@ static void cleanup( )
 	con_Win = NULL;
 	if(CONSOLE) {
 		exit_console();
-		if(!con_Fatal)	_puts("\033c"); else _gotoxy(screen_rows,1);
+		// if(!con_Fatal)	_puts("\033c"); else 
+		_gotoxy(screen_rows,1);
 		_flush();
 		if(con_Raw) SetMode13(CONSOLE,0);
 		Close(CONSOLE); CONSOLE=0;
 	}
 }
 
+static void center(int row, char * text)
+{
+	int col = (screen_cols - strlen(text)) / 2;
+	move_cursor( row, col);
+	display_string(text);
+}
+
 void initialize_screen(  )
 {
-	int row, col;
+	int row;
 
 	open_console();
 	init_console();
@@ -851,16 +866,12 @@ void initialize_screen(  )
 	//_putf(CSI "%d\x74\x9B%d\x75", screen_rows, screen_cols);
 
 
-	// _puts("\033c");
+	_puts("\033c");
 	clear_screen(  );
-	row = screen_rows / 2 - 1;
-	col = ( screen_cols - ( sizeof ( JZIPVER ) - 1 ) ) / 2;
-	move_cursor( row, col );
-	display_string( JZIPVER );
 	row = screen_rows / 2;
-	col = ( screen_cols - ( sizeof ( "The story is loading..." ) - 1 ) ) / 2;
-	move_cursor( row, col );
-	display_string( "The story is loading..." );
+	center(row-1, JZIPVER);
+	center(row+0, "The story is loading..." );
+	center(row+2, "(Amiga version by Samuel Devulder)");
 	move_cursor( screen_rows, 1 );
 	_cursor(1); _flush();_cursor(0);
    
