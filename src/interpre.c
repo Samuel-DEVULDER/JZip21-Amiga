@@ -61,7 +61,7 @@ int interpret(  )
 
 
       opcode = read_code_byte(  );
-      if ( h_type > V4 && opcode == 0xbe )
+      if ( opcode == 0xbe && h_type > V4 )
       {
          opcode = read_code_byte(  );
          extended = TRUE;

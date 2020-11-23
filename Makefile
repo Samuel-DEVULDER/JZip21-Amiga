@@ -12,16 +12,15 @@ endif
 ifneq ($(FROM_OBJDIR),1)
 
 all: jzip
-	-@cp  $^ $@
-	
+
 jzip: $(OBJDIR)/jzip
-	-@cp  $^ $@
 
 %: $(OBJDIR)
 %: $(OBJDIR)/%
 	
-$(OBJDIR)/%: 
+$(OBJDIR)/%:
 	$(MAKE) --no-print-directory -f "$(BASEDIR)/Makefile" -C $(OBJDIR) FROM_OBJDIR=1 $*
+	-cp $(OBJDIR)/jzip jzip
 	
 $(OBJDIR):
 	-$(MKDIR) $(OBJDIR)

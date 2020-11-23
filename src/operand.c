@@ -40,7 +40,7 @@
 zword_t load_operand( int type )
 {
 #if 1
-#if defined(__mc68000__) && defined(__GNUC__)
+#if defined(__mc68000__) && defined(__GNUC__) && 0
 	register int d0 asm("d0") = type;
 	asm volatile (
 	"	tst%.l 	%0\n"
@@ -63,6 +63,27 @@ zword_t load_operand( int type )
 	: "+d" (d0)
 	: "m" (read_code_byte), "m" (read_code_word), "m" (load_variable), "m" (stack), "mr" (sp) : "a0", "d1", "a1", "cc", "memory");
 	return d0;
+#elif defined(__mc68000__) && defined(__GNUC__)
+	switch(type) {
+		default: 
+		return read_code_byte(  );	
+		
+		case 0: 
+		return read_code_word( );
+		
+		case 2: 
+		{register short d0 asm("d0");
+		asm volatile (
+		"	jbsr	%1\n"
+		"	and%.w #255,d0\n"
+		"	ext%.l	d0\n"
+		"	jbne	%2\n"
+		"	move%.w	%3,d0\n"
+		"	addq.w	#1,%3\n"
+		: "=d" (d0)
+		: "m" (read_code_byte), "m" (load_variable), "mr" (sp));
+		return stack[d0];}
+	}
 #else
 	switch(type) {
 		default: 

@@ -1919,7 +1919,7 @@ void process_arguments( int argc, char *argv[] )
 
 }                               /* process_arguments */
 
-#if defined(__GNUC__) && defined(__mc68000__)
+#if defined(__GNUC__) && defined(__mc68000__) && 00
 asm(
 "	.globl 	___mulsi3\n"
 "	.align	2\n"

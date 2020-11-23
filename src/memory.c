@@ -253,17 +253,35 @@ zbyte_t read_code_byte( void )
 	}
 	
 	/* Return byte & update PC */
-#if defined(__GNUC__) && defined(__mc68000__)
+#if defined(__GNUC__) && defined(__mc68000__) && 0
 	asm volatile(
 	"	sub%.l	%1,%0\n"
 	"	addq%.l	#1,%1\n"
 	"	neg%.l	%0\n"
 	: "+d" (page_key)
 	: "m" (pc));
+#elif defined(__GNUC__) && defined(__mc68000__)
+	asm volatile(
+	"	sub%.w	%2,%0\n"
+	"	addq%.l	#1,%1\n"
+	"	neg%.w	%0\n"
+	: "+d" (page_key)
+	: "m" (pc), "m" (((zword_t*)&pc)[1]));
+#elif defined(__GNUC__) && defined(__mc68000__) && 0
+{ struct cache_entry *a0 = current_code_cachep;
+	asm volatile(
+	"   add%.l  %2,%0\n"
+	"	addq%.l	#1,%2\n"
+	"   sub%.l	%1,%0\n"
+	: "=&a" (a0)
+	: "d" (page_key), "m" (pc), "0" (a0));
+return a0->data[0];}
+#elif defined(__GNUC__) && defined(__mc68000__) && 0
+	return ((struct cache_entry*)(((zbyte_t*)current_code_cachep) + pc++ - page_key))->data[0];
 #else
 	page_key ^= pc++;
 #endif
-	return current_code_cachep->data[page_key];
+	return current_code_cachep->data[(short)page_key];
 }                               /* read_code_byte */
 
 /*
