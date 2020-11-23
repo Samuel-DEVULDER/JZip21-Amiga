@@ -802,7 +802,7 @@ void set_colours( zword_t foreground, zword_t background )
 
 static void init_console()
 {
-	// _puts("\033c");
+	_puts("\033c");
 	_puts(CSI "2;12;11{");     /* report mouse click & window resize & close */
 	_puts(CSI "0m"); /* default color */
 	_puts(CSI "\x30\x20\x70"); /* cursor_off */
@@ -835,7 +835,7 @@ static void cleanup( )
 		exit_console();
 		// if(!con_Fatal)	_puts("\033c"); else 
 		_gotoxy(screen_rows,1);
-		_flush();
+		_flush();_flush_input();
 		if(con_Raw) SetMode13(CONSOLE,0);
 		Close(CONSOLE); CONSOLE=0;
 	}
@@ -866,7 +866,6 @@ void initialize_screen(  )
 	//_putf(CSI "%d\x74\x9B%d\x75", screen_rows, screen_cols);
 
 
-	_puts("\033c");
 	clear_screen(  );
 	row = screen_rows / 2;
 	center(row-1, JZIPVER);

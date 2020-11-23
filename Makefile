@@ -12,7 +12,8 @@ endif
 ifneq ($(FROM_OBJDIR),1)
 
 all: jzip
-
+	-@cp  $^ $@
+	
 jzip: $(OBJDIR)/jzip
 	-@cp  $^ $@
 
