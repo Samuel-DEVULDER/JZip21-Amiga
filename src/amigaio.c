@@ -1922,10 +1922,10 @@ void process_arguments( int argc, char *argv[] )
 
 #if defined(__GNUC__) && defined(__mc68000__)
 asm(
-"	.globl ___mulsi3\n"
+"	.globl 	___mulsi3\n"
 "	.align	2\n"
 "___mulsi3:\n"
-"	lea		sp@(4),a0\n"
+"	lea  	sp@(4),a0\n"
 "	movew	a0@+,d0\n"
 "	movew	a0@+,d1\n"
 "	muluw	a0@+,d1\n"
