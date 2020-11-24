@@ -469,7 +469,12 @@ static inline zword_t _get_word(zbyte_t *p)
 #else
 #define get_word(offset) (zword_t) (((zword_t) datap[offset] << 8) | (unsigned char)datap[offset + 1]) 
 #endif
+
+#if defined(__GNUC__) && defined(__mc68000__)
+#define set_word(offset,value)	asm volatile("ror.w #8,%0\nmove%.b %0,(%1)+\nror%.w #8,%0\nmove%.b %0,(%1)" : : "d" (value), "a" (&datap[offset]))
+#else
 #define set_word(offset,value) datap[offset] = (zbyte_t) ((zword_t) (value) >> 8), datap[offset + 1] = (zbyte_t) ((zword_t) (value) & 0xff)
+#endif
 /* External data */
 
 extern int GLOBALVER;
