@@ -67,7 +67,7 @@ static int con_Buf_len;
 
 static void init_console();
 static void cleanup();		
-static int current_attr;
+static int current_attr, current_curs;
 // extern struct Library *SysBase;	
 
 /* Kick 1.3 compatible SetMode:  https://github.com/alexalkis/sillychess/commit/c8b0c85b30cd53e037e9152af603ff9356ac54dd#diff-e88d359c5b1d713706e952fc902bad7019b1acb1a92a2ee81d8cfbb8b0d97bd7 
@@ -475,6 +475,7 @@ static void _putf(char *fmt, ...)
 
 static void _cursor(int on)
 {
+	current_curs = on;
 	_puts(on ? CSI "\x20\x70" : CSI "\x30\x20\x70");
 	if(con_Win && SysBase->LibNode.lib_Version>=39) {
 		if(on)
@@ -624,13 +625,14 @@ again:
 				LONG y0 = con_Win->BorderTop;
 				LONG x1 = con_Win->Width  - con_Win->BorderRight - 1;
 				LONG y1 = con_Win->Height - con_Win->BorderBottom - 1;
-				_cursor(0); _flush();
+				int _old_curs = current_curs;
+				if(_old_curs) {_cursor(0); _flush();}
 				SetAPen(con_Win->RPort, con_BG);
 				if(screen_rows>=old_rows && y0 + old_rows*con_TxH<=y1) 
 					RectFill(rp, x0, y0 + old_rows*con_TxH, x1,y1);
 				if(screen_cols>=old_cols && x0 + old_cols*con_TxW<=x1) 
 					RectFill(rp, x0 + old_cols*con_TxW, y0, x1,y1);
-				_cursor(1); _flush();
+				if(_old_curs) {_cursor(1); _flush();}
 			}
 
 			if(changed) {
@@ -835,6 +837,7 @@ static void cleanup( )
 		exit_console();
 		// if(!con_Fatal)	_puts("\033c"); else 
 		_gotoxy(screen_rows,1);
+		_puts(CSI "\x4B"); /* erase line */
 		_flush();_flush_input();
 		if(con_Raw) SetMode13(CONSOLE,0);
 		Close(CONSOLE); CONSOLE=0;
@@ -967,7 +970,9 @@ void reset_screen(  )
 void clear_screen(  )
 {	
  // fprintf(stderr, "clear_screen: %d %d", current_bg, default_bg);
-	_make_global_bg(current_bg>=0 ? current_bg : default_bg); _putc(12); _flush();
+	_putc(12);
+	_make_global_bg(current_bg>=0 ? current_bg : default_bg);  
+	_flush();
 	current_row = 1;
 	current_col = 1;
 }                               /* clear_screen */
@@ -1002,7 +1007,8 @@ void clear_text_window( void)
 	int row, col;
 	get_cursor_position( &row, &col );
 	move_cursor(status_size+1,1); 
-	_make_global_bg(current_bg); _puts(CSI "\x4A"); /* Erase in Display	(only to end of display) */
+	_puts(CSI "\x4A"); /* Erase in Display	(only to end of display) */
+	_make_global_bg(current_bg); 
 	move_cursor( row, col );
 }                               /* clear_text_window */
 
@@ -1327,9 +1333,9 @@ void add_command( char *buffer, int size )
 
 int input_character( int timeout )
 {
-	int c;
+	int c, on = timeout==0 && !current_curs;
 
-	_cursor(1);
+	if(on) _cursor(1);
 	switch(c = _getc(timeout)) {
 		case MASK2(0x9b,'A'):	/* Up arrow */
 			c = 129; break;
@@ -1342,7 +1348,7 @@ int input_character( int timeout )
 		case '\n':
 			c = '\r'; break;
 	}
-	_cursor(0);
+	if(on) _cursor(0);
 	return ( c );
 }                               /* input_character */
 
@@ -1482,7 +1488,7 @@ int input_line( int buflen, char *buffer, int timeout, int *read_size )
                   }
                   if ( *read_size > 0 )
                      add_command( buffer, *read_size );
-
+				  _cursor(0); _flush();
                   /* Return key if it is a line terminator */
                   return ( c );
                } else {
