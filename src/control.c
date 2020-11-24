@@ -65,11 +65,9 @@ void z_check_arg_count( zword_t argc )
  * Implements: call_1s, call_1n, call_2s, call_2n, call, call_vs, call_vs2, call_vn, call_vn2
  *
  */
-
+ 
 int z_call( int argc, zword_t * argv, int type )
 {
-   zword_t arg;
-   int i = 1, args, status = 0;
 
    /* Convert calls to 0 as returning FALSE */
 
@@ -77,50 +75,59 @@ int z_call( int argc, zword_t * argv, int type )
    {
       if ( type == FUNCTION )
          store_operand( FALSE );
-      return ( 0 );
-   }
+   } else {
+	    zword_t *a0 = &stack[sp]; short args;
+		
+		/* Save current PC, FP and argument count on stack */
 
-   /* Save current PC, FP and argument count on stack */
+		*--a0 = ( zword_t ) ( pc / PAGE_SIZE );
+		*--a0 = ( zword_t ) ( pc % PAGE_SIZE );
+		*--a0 = fp;
+		*--a0 = --argc | type;
 
-   stack[--sp] = ( zword_t ) ( pc / PAGE_SIZE );
-   stack[--sp] = ( zword_t ) ( pc % PAGE_SIZE );
-   stack[--sp] = fp;
-   stack[--sp] = ( argc - 1 ) | type;
-
-   /* Create FP for new subroutine and load new PC */
-
-   fp = sp - 1;
-   GCC650_FIX(pc = ( unsigned long ) argv[0] * story_scaler);
+		/* Create FP for new subroutine and load new PC */
+		sp -= 4;
+		fp = sp - 1;
+		pc = ( unsigned long ) *argv++ * story_scaler;
 
 #if defined(USE_QUETZAL)
-   ++frame_count;
+		++frame_count;
 #endif
 
-   /* Read argument count and initialise local variables */
-
-   args = ( unsigned int ) read_code_byte(  );
+		/* Read argument count and initialise local variables */
+		args = ( unsigned int ) read_code_byte(  );
+		if(args) {
 #if defined(USE_QUETZAL)
-   stack[sp] |= args << VAR_SHIFT;
+		*a0 |= args << VAR_SHIFT;
 #endif
-   while ( --args >= 0 )
-   {
-      arg = ( h_type > V4 ) ? 0 : read_code_word(  );
-      stack[--sp] = ( --argc > 0 ) ? argv[i++] : arg;
+		// if(args>=1) sp -= args-1;
+		sp -= args;
+		if( h_type > V4 ) {			
+			do {
+				*--a0 = ( --argc >= 0 ) ? *argv++ : 0;
+			} while(--args);
+		} else {
+			do {
+				zword_t arg =  read_code_word(  );
+				*--a0 = ( --argc >= 0 ) ? *argv++ : arg;
+			} while(--args);
+		}
+		}
+
+		/* If the call is asynchronous then call the interpreter directly.
+		* We will return back here when the corresponding return frame is
+		* encountered in the ret call. */
+
+		if ( type == ASYNC )
+		{
+		  int status = interpret(  );
+		  interpreter_state = RUN;
+		  interpreter_status = 1;
+		  return status;
+		}
    }
-
-   /* If the call is asynchronous then call the interpreter directly.
-    * We will return back here when the corresponding return frame is
-    * encountered in the ret call. */
-
-   if ( type == ASYNC )
-   {
-      status = interpret(  );
-      interpreter_state = RUN;
-      interpreter_status = 1;
-   }
-
-   return ( status );
-
+   
+   return 0;
 }                               /* z_call */
 
 /*
@@ -132,18 +139,13 @@ int z_call( int argc, zword_t * argv, int type )
 
 void z_ret( zword_t value )
 {
-   zword_t argc;
-
    /* Clean stack */
-
-   sp = fp + 1;
+   zword_t *a0 = &stack[sp = fp + 1 + 4];
 
    /* Restore argument count, FP and PC */
+	pc = a0[-1]*PAGE_SIZE + a0[-2];
+	fp = a0[-3];
 
-   argc = stack[sp++];
-   fp = stack[sp++];
-   GCC650_FIX(pc = stack[sp++]); 
-   GCC650_FIX(pc += ( unsigned long ) stack[sp++] * PAGE_SIZE);
 #if defined(USE_QUETZAL)
    --frame_count;
 #endif
@@ -155,7 +157,7 @@ void z_ret( zword_t value )
     * better design would have all opcodes returning the status RUN, but
     * this is too much work and makes the interpreter loop look ugly */
 
-   if ( ( argc & TYPE_MASK ) == ASYNC )
+   if ( ( a0[-4] & TYPE_MASK ) == ASYNC )
    {
       interpreter_state = STOP;
       interpreter_status = ( int ) value;
@@ -163,7 +165,7 @@ void z_ret( zword_t value )
    else
    {
       /* Return subroutine value for function call only */
-      if ( ( argc & TYPE_MASK ) == FUNCTION )
+      if ( ( a0[-4] & TYPE_MASK ) == FUNCTION )
       {
          store_operand( value );
       }
