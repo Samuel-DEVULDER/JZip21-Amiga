@@ -77,11 +77,36 @@ int interpret(  )
 
          /* Two operand class, load both operands */
 
+         // if ( opcode < 0x80 && extended == FALSE )
+         // {
+            // operand[count++] = load_operand( ( opcode & 0x40 ) ? 2 : 1 );
+            // operand[count++] = load_operand( ( opcode & 0x20 ) ? 2 : 1 );
+            // opcode &= 0x1f;
+         // }
          if ( opcode < 0x80 && extended == FALSE )
          {
-            operand[count++] = load_operand( ( opcode & 0x40 ) ? 2 : 1 );
-            operand[count++] = load_operand( ( opcode & 0x20 ) ? 2 : 1 );
-            opcode &= 0x1f;
+			 switch(opcode&0x60) {
+				 case 0x00: 
+				 operand[0] = load_operand(1);
+				 operand[1] = load_operand(1);
+				 break;
+				 
+				 case 0x20:
+				 operand[0] = load_operand(1);
+				 operand[1] = load_operand(2);
+				 break;
+				 
+				 case 0x40: 
+				 operand[0] = load_operand(2);
+				 operand[1] = load_operand(1);
+				 break;
+				 
+				 default: 
+				 operand[0] = load_operand(2);
+				 operand[1] = load_operand(2);
+				 break;
+			 }
+			 count = 2; opcode &= 0x1f;
          }
          else
          {
