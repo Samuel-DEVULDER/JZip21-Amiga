@@ -869,7 +869,7 @@ void initialize_screen(  )
 	//_putf(CSI "%d\x74\x9B%d\x75", screen_rows, screen_cols);
 
 
-	clear_screen(  );
+	// clear_screen(  );
 	row = screen_rows / 2;
 	center(row-1, JZIPVER);
 	center(row+0, "The story is loading..." );
