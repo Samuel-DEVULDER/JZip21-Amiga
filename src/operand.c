@@ -64,15 +64,10 @@ zword_t load_operand( int type )
 	: "m" (read_code_byte), "m" (read_code_word), "m" (load_variable), "m" (stack), "mr" (sp) : "a0", "d1", "a1", "cc", "memory");
 	return d0;
 #elif defined(__mc68000__) && defined(__GNUC__)
-	switch(type) {
-		default: 
-		return read_code_byte(  );	
-		
-		case 0: 
-		return read_code_word( );
-		
-		case 2: 
-		{register short d0 asm("d0");
+	register short d0 asm("d0") = type;
+	if(!d0) return read_code_word( );
+	d0 -= 2;
+	if(!d0) {
 		asm volatile (
 		"	jbsr	%1\n"
 		"	and%.w #255,d0\n"
@@ -82,8 +77,10 @@ zword_t load_operand( int type )
 		"	addq.w	#1,%3\n"
 		: "=d" (d0)
 		: "m" (read_code_byte), "m" (load_variable), "mr" (sp));
-		return stack[d0];}
+		return stack[d0];
 	}
+	asm volatile("" : : "d" (d0));
+	return read_code_byte(  );	
 #else
 	switch(type) {
 		default: 
@@ -167,9 +164,10 @@ void store_operand( zword_t operand )
 zword_t load_variable( int number )
 {
 #if 1
-	if(0==number) return stack[sp];
-	if(0==(number & ~15)) return stack[fp - --number];
-	return get_word( h_globals_offset + ( ( number - 16 ) * 2 ) );
+	short d0 = number;
+	if(0==d0) return stack[sp];
+	if(0==(d0 & ~15)) return stack[fp - --d0];
+	return get_word( (short)h_globals_offset + ( ( d0 - 16 ) * 2 ) );
 #else
    if ( number )
    {
@@ -202,7 +200,12 @@ zword_t load_variable( int number )
 
 void z_store( int number, zword_t variable )
 {
-
+#if 1
+	short d0 = number;
+	if(0==d0) stack[(short)sp] = variable; else
+	if(d0<16) stack[(short)fp - --d0] = variable; else
+	set_word( h_globals_offset + ( ( d0 - 16 ) * 2 ), variable);
+#else
    if ( number )
    {
       if ( number < 16 )
@@ -219,7 +222,7 @@ void z_store( int number, zword_t variable )
       /* number = 0, get from top of stack */
 
       stack[sp] = variable;
-
+#endif
 }                               /* z_store */
 
 /*

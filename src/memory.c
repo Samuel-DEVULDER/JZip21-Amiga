@@ -262,9 +262,9 @@ zbyte_t read_code_byte( void )
 	: "m" (pc));
 #elif defined(__GNUC__) && defined(__mc68000__)
 	asm volatile(
-	"	sub%.w	%2,%0\n"
-	"	addq%.l	#1,%1\n"
 	"	neg%.w	%0\n"
+	"	add%.w	%2,%0\n"
+	"	addq%.l	#1,%1\n"
 	: "+d" (page_key)
 	: "m" (pc), "m" (((zword_t*)&pc)[1]));
 #elif defined(__GNUC__) && defined(__mc68000__) && 0
