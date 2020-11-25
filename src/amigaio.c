@@ -875,7 +875,8 @@ void initialize_screen(  )
 	center(row+0, "The story is loading..." );
 	center(row+2, "(Amiga version by Samuel Devulder)");
 	move_cursor( screen_rows, 1 );
-	_cursor(1); _flush();_cursor(0);
+	_cursor(1); _flush();
+	_cursor(0); _putc(12); move_cursor( screen_rows, 1 ); 
    
 	if(con_Win && con_Unit)
 		con_GfxFont = newFont3(con_Font = con_Win->RPort->Font); //IFont;
