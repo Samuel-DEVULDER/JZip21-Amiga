@@ -137,6 +137,26 @@ zword_t load_operand( int type )
 
 void store_operand( zword_t operand )
 {
+#if defined(__GNUC__) && defined(__mc68000__)
+	register int d0 asm("d0"), d1 asm("d1");
+	asm volatile(
+	"	move%.l	%0,-(sp)\n"
+	"	jbsr	%2\n"
+	"	and%.w	#255,d0\n"
+	"	move%.l	(sp)+,d1\n"
+	"	ext%.l	d0\n"
+	"	jbne	%3\n"
+	: "=d" (d0), "=d" (d1)
+	: "m" (read_code_byte), "m" (z_store)
+	: "a0", "a1");
+	asm volatile(
+	"	subq%.w	#1,%2\n"
+	"	move%.w	%2,%0\n"
+	"	add%.l	%0,%0\n"
+	"	move%.w	%1,(%3,%0.l)\n"
+	: "+d" (d0)
+	: "d" (d1), "m" (sp), "a" (stack));
+#else
    zbyte_t specifier;
 
    /* Read operand specifier byte */
@@ -150,7 +170,7 @@ void store_operand( zword_t operand )
       z_store( specifier, operand );
    else
       stack[--sp] = operand;
-
+#endif
 }                               /* store_operand */
 
 /*
