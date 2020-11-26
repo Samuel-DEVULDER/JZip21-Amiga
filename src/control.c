@@ -182,7 +182,7 @@ void z_ret( zword_t value )
 void z_jump( zword_t offset )
 {
 
-   GCC650_FIX(pc = ( unsigned long ) ( pc + ( ZINT16 ) offset - 2 ));
+   pc = ( unsigned long ) ( pc + ( ZINT16 ) offset - 2 );
 
 }                               /* z_jump */
 
@@ -264,7 +264,7 @@ void z_restart( void )
 
    /* Load start PC, SP and FP */
 
-   GCC650_FIX(pc = h_start_pc);
+   pc = h_start_pc;
    sp = STACK_SIZE;
    fp = STACK_SIZE - 1;
 #if defined (USE_QUETZAL)

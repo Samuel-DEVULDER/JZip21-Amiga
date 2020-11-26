@@ -47,8 +47,8 @@ static int halt = FALSE;
 int interpret(  )
 {
    zbyte_t opcode;
-   zword_t specifier, operand[8];
-   int maxoperands, count, extended, i;
+   zword_t operand[8];
+   int count, extended;
 
    interpreter_status = 1;
 
@@ -110,28 +110,32 @@ int interpret(  )
          }
          else
          {
-
+			zword_t specifier, *a2 = operand;
             /* Variable operand class, load operand specifier */
 
             opcode &= 0x3f;
             if ( opcode == 0x2c || opcode == 0x3a )
             {                   /* Extended CALL instruction */
-               specifier = read_code_word(  );
-               maxoperands = 8;
+			   specifier = ~read_code_word(  );
             }
             else
             {
-               specifier = read_code_byte(  );
-               maxoperands = 4;
+               specifier = (~read_code_byte(  )) << 8;
             }
-
-            /* Load operands */
-
-            for ( i = ( maxoperands - 1 ) * 2; i >= 0; i -= 2 )
-               if ( ( ( specifier >> i ) & 0x03 ) != 3 )
-                  operand[count++] = load_operand( ( specifier >> i ) & 0x03 );
-               else
-                  i = 0;
+			while(specifier>=0x4000) {
+				// 00 --> 11 --> >= 0xc000
+				// 01 --> 10 --> >= 0x8000 
+				// 10 --> 01 --> <  0x8000
+				// 11 --> 00 --> <  0x4000
+				if(specifier >= 0xc000) 
+					*a2++ = load_operand(0);
+				else if(specifier >= 0x8000)
+					*a2++ = load_operand(1);
+				else
+					*a2++ = load_operand(2);
+				specifier <<= 2;
+			}
+			count = a2 - operand;
          }
 
          if ( extended == TRUE )

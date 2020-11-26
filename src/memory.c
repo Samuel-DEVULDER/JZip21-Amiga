@@ -261,12 +261,19 @@ zbyte_t read_code_byte( void )
 	: "+d" (page_key)
 	: "m" (pc));
 #elif defined(__GNUC__) && defined(__mc68000__)
+#ifdef PC_REG
+	asm volatile(
+	"	eor.l	%1,%0\n"
+	"	addq%.l	#1,%1\n"
+	: "+d" (page_key), "+d" (pc));
+#else
 	asm volatile(
 	"	neg%.w	%0\n"
 	"	add%.w	%2,%0\n"
 	"	addq%.l	#1,%1\n"
 	: "+d" (page_key)
 	: "m" (pc), "m" (((zword_t*)&pc)[1]));
+#endif
 #elif defined(__GNUC__) && defined(__mc68000__) && 0
 { struct cache_entry *a0 = current_code_cachep;
 	asm volatile(

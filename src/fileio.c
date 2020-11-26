@@ -909,7 +909,7 @@ static int save_restore( const char *file_name, int flag )
       }
 
       fp = stack[sp++];
-      GCC650_FIX(pc = stack[sp++]); 
+      pc = stack[sp++]; 
       pc += ( unsigned long ) stack[sp++] * PAGE_SIZE;
 
       /* Save or restore writeable game data area */

@@ -364,13 +364,13 @@ int restore_quetzal( FILE * sfp, FILE * gfp )
             }
             if ( ( x = get_c( sfp ) ) == EOF )
                return FALSE;
-            GCC650_FIX(pc = ( ul_t ) x << 16);
+            pc = ( ul_t ) x << 16;
             if ( ( x = get_c( sfp ) ) == EOF )
                return FALSE;
-            GCC650_FIX(pc |= ( ul_t ) x << 8);
+            pc |= ( ul_t ) x << 8;
             if ( ( x = get_c( sfp ) ) == EOF )
                return FALSE;
-            GCC650_FIX(pc |= ( ul_t ) x);
+            pc |= ( ul_t ) x;
             for ( i = 13; ( ul_t ) i < currlen; ++i ) 
                ( void ) get_c( sfp ); /* skip rest of chunk */
             break;
