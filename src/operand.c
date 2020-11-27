@@ -70,7 +70,7 @@ zword_t load_operand( int type )
 	if(!d0) {
 		asm volatile (
 		"	jbsr	%1\n"
-		"	and%.w #255,d0\n"
+		"	and%.w	#255,d0\n"
 		"	ext%.l	d0\n"
 		"	jbne	%2\n"
 		"	move%.w	%3,d0\n"

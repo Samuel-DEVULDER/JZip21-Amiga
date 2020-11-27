@@ -46,9 +46,9 @@ static int halt = FALSE;
 
 int interpret(  )
 {
-   zbyte_t opcode;
+   zbyte_t opcode, extended;
    zword_t operand[8];
-   int count, extended;
+   int count;
 
    interpreter_status = 1;
 
@@ -68,8 +68,7 @@ int interpret(  )
       }
       else
          extended = FALSE;
-      count = 0;
-
+      
       /* Multiple operand instructions */
 
       if ( ( opcode < 0x80 || opcode > 0xc0 ) || extended == TRUE )
@@ -85,8 +84,42 @@ int interpret(  )
          // }
          if ( opcode < 0x80 && extended == FALSE )
          {
+#if defined(__GNUC__) && defined(__mc68000__)
+			register zbyte_t d0 asm("d0");
+			asm volatile (
+			"	lsl%.b	#2,%0\n"
+			"	jbcs	.l1x%=\n"
+			"	jbmi	.l01x%=\n"
+			"	moveq	#1,d0\n"
+			"	bsr%.w	%1\n"
+			"	move%.w	d0,%2\n"
+			"	moveq	#1,d0\n"
+			"	jbra	.lxx%=\n"
+			".l01x%=:\n"
+			"	moveq	#1,d0\n"
+			"	bsr%.w	%1\n"
+			"	move%.w	d0,%2\n"
+			"	moveq	#2,d0\n"
+			"	jbra	.lxx%=\n"
+			".l1x%=:\n"
+			"	jbmi	.l11x%=\n"
+			"	moveq	#2,d0\n"
+			"	bsr%.w	%1\n"
+			"	move%.w	d0,%2\n"
+			"	moveq	#1,d0\n"
+			"	jbra	.lxx%=\n"
+			".l11x%=:\n"
+			"	moveq	#2,d0\n"
+			"	bsr%.w	%1\n"
+			"	move%.w	d0,%2\n"
+			"	moveq	#2,d0\n"
+			".lxx%=:\n"
+			"	bsr%.w	%1\n"
+			"	move%.w	d0,%3\n"
+			: "=&d" (d0) : "mo" (load_operand), "ma" (operand[0]), "ma" (operand[1]), "0" (opcode));
+#else
 			 switch(opcode&0x60) {
-				 case 0x00: 
+				 case 0x00:
 				 operand[0] = load_operand(1);
 				 operand[1] = load_operand(1);
 				 break;
@@ -96,7 +129,7 @@ int interpret(  )
 				 operand[1] = load_operand(2);
 				 break;
 				 
-				 case 0x40: 
+				 case 0x40:
 				 operand[0] = load_operand(2);
 				 operand[1] = load_operand(1);
 				 break;
@@ -106,6 +139,7 @@ int interpret(  )
 				 operand[1] = load_operand(2);
 				 break;
 			 }
+#endif
 			 count = 2; opcode &= 0x1f;
          }
          else
