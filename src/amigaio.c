@@ -12,7 +12,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdarg.h>
-#include <strings.h>
 #include <signal.h>
 #include <sys/signal.h>
 // #include <unistd.h>
@@ -63,11 +62,11 @@ static struct TextFont *con_Font, *con_GfxFont, *newFont3(struct TextFont *wrc);
 static struct ConUnit *con_Unit;
 static UBYTE palette[8];
 static UBYTE con_Buf[1024];
-static int con_Buf_len;
+static UWORD con_Buf_len;
 
 static void init_console();
 static void cleanup();		
-static int current_attr, current_curs;
+static UWORD current_attr = 0, current_curs;
 // extern struct Library *SysBase;	
 
 /* Kick 1.3 compatible SetMode:  https://github.com/alexalkis/sillychess/commit/c8b0c85b30cd53e037e9152af603ff9356ac54dd#diff-e88d359c5b1d713706e952fc902bad7019b1acb1a92a2ee81d8cfbb8b0d97bd7 
@@ -470,7 +469,7 @@ static void _putf(char *fmt, ...)
 	vsprintf(buf,fmt,argptr);
 	va_end(argptr);
 	
-	_puts(buf);
+	_puts(buf); 
 }
 
 static void _cursor(int on)
@@ -1103,7 +1102,7 @@ void restore_cursor_position(  )
 
 static void _set_attribute(void) 
 {
-	static int attribute = -1;
+	static UWORD attribute = 0;
 	if(attribute == current_attr) return;
 	attribute = current_attr;
 	// fprintf(stderr, "set_attribute(%d)\n", attribute);

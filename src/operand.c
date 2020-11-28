@@ -155,7 +155,7 @@ void store_operand( zword_t operand )
 	"	add%.l	%0,%0\n"
 	"	move%.w	%1,(%3,%0.l)\n"
 	: "+d" (d0)
-	: "d" (d1), "m" (sp), "a" (stack));
+	: "d" (d1), "md" (sp), "a" (stack));
 #else
    zbyte_t specifier;
 

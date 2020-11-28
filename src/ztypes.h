@@ -502,11 +502,16 @@ extern int property_mask;
 extern int property_size_mask;
 
 extern zword_t stack[STACK_SIZE];
+#define STR2(x) #x
+#define STR(x) STR2(x)
+#if defined(__GNUC__) && defined(__mc68000__) && defined(SP_REG)
+register zword_t sp asm(STR(SP_REG));
+#else
 extern zword_t sp;
+#endif
 extern zword_t fp;
-#if defined(__GNUC__) && defined(__mc68000__)
-#define PC_REG "d7"
-register unsigned long pc asm(PC_REG);
+#if defined(__GNUC__) && defined(__mc68000__) && defined(PC_REG)
+register unsigned long pc asm(STR(PC_REG));
 #else
 extern unsigned long pc;
 #endif

@@ -71,7 +71,8 @@ int interpret(  )
       
       /* Multiple operand instructions */
 
-      if ( ( opcode < 0x80 || opcode > 0xc0 ) || extended == TRUE )
+      // if ( ( opcode < 0x80 || opcode > 0xc0 ) || extended==TRUE )
+	  if (extended || (opcode^0x80)>0x40)
       {
 
          /* Two operand class, load both operands */
@@ -82,7 +83,7 @@ int interpret(  )
             // operand[count++] = load_operand( ( opcode & 0x20 ) ? 2 : 1 );
             // opcode &= 0x1f;
          // }
-         if ( opcode < 0x80 && extended == FALSE )
+         if (!extended && opcode < 0x80 )
          {
 #if defined(__GNUC__) && defined(__mc68000__)
 			register zbyte_t d0 asm("d0");
