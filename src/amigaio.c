@@ -1101,10 +1101,11 @@ void restore_cursor_position(  )
    }
 }                               /* restore_cursor_position */
 
-void set_attribute( attribute )
-   int attribute;
+static void _set_attribute(void) 
 {
-	current_attr = attribute;
+	static int attribute = -1;
+	if(attribute == current_attr) return;
+	attribute = current_attr;
 	// fprintf(stderr, "set_attribute(%d)\n", attribute);
 #if defined HARD_COLORS
 	if ( attribute == NORMAL ) {
@@ -1125,6 +1126,12 @@ void set_attribute( attribute )
 	if ( attribute & REVERSE ) _puts(CSI "7m");
 	if ( attribute & BOLD    ) _puts(CSI "1m");
 	if ( attribute & EMPHASIS) _puts(CSI "4m");
+}
+
+void set_attribute( attribute )
+   int attribute;
+{
+	current_attr = attribute;
 }                               /* set_attribute */
 
 static void display_string( s )
@@ -1183,6 +1190,8 @@ void display_char( int c )
 			// default:  c = c>=32 && c<=126 ? conv[c-32] : '+'; break; /* (ASCII 43) */
 		// }
 	}
+	
+	_set_attribute();
 	
 	switch(c) {
 		case 7: break;
@@ -1926,7 +1935,8 @@ void process_arguments( int argc, char *argv[] )
 
 }                               /* process_arguments */
 
-#if defined(__GNUC__) && defined(__mc68000__) && 00
+#if defined(__GNUC__) && defined(__mc68000__) && 1
+#if 0
 asm(
 "	.globl 	___mulsi3\n"
 "	.align	2\n"
@@ -1943,4 +1953,27 @@ asm(
 "	clrw	d0\n"
 "	addl	d1,d0\n"
 "	rts");
+#else
+asm(
+"	.globl 	___mulsi3\n" 
+"	.align	2\n"
+"___mulsi3:\n"
+"	lea		sp@(4),a0\n"
+"	lea		sp@(8),a1\n"
+"	movew	a0@+,d0\n"
+"   jbeq	.l0xyy\n"
+"	muluw	a1@(2),d0\n"
+".l0xyy:\n"
+"	movew	a1@+,d1\n"
+"	jbeq	.lxx0y\n"
+"	muluw	a0@,d1\n"
+"	addw	d1,d0\n"
+".lxx0y:\n"
+"	movew	a0@,d1\n"
+"	swap	d0\n"
+"	muluw	a1@,d1\n"
+"	clrw	d0\n"
+"	addl	d1,d0\n"
+"	rts");
+#endif
 #endif
