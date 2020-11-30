@@ -236,7 +236,7 @@ zbyte_t read_code_byte( void )
 	/* Load page into translation buffer */
 	if ( page_key - current_code_page )
 	{
-#if defined(__GNUC__) && defined(__mc68000__)
+#if defined(__GNUC__) && defined(__mc68000__) && !defined(PC_REG)
 		asm volatile("move.l %0,-(sp)" : : "r" (page_key) : "sp");
 #endif
 		if ( !(current_code_cachep = update_cache( page_key )) )
@@ -245,7 +245,11 @@ zbyte_t read_code_byte( void )
 					( "read_code_byte(): read from non-existant page!\n\t(Your dynamic memory usage _may_ be over 64k in size!)" );
 		}
 #if defined(__GNUC__) && defined(__mc68000__)
+#ifndef PC_REG
 		asm volatile("move.l (sp)+,%0" : "=r" (page_key) : : "sp");
+#else
+		page_key = pc;asm volatile("andi%.w %1,%0" : "+d" (page_key): "J" (~PAGE_MASK));
+#endif
 #else
 		page_key = pc & ~PAGE_MASK;
 #endif
@@ -263,7 +267,7 @@ zbyte_t read_code_byte( void )
 #elif defined(__GNUC__) && defined(__mc68000__)
 #ifdef PC_REG
 	asm volatile(
-	"	eor.l	%1,%0\n"
+	"	eor%.w	%1,%0\n"
 	"	addq%.l	#1,%1\n"
 	: "+d" (page_key), "+d" (pc));
 #else

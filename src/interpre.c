@@ -46,9 +46,7 @@ static int halt = FALSE;
 
 int interpret(  )
 {
-   zbyte_t opcode, extended;
-   zword_t operand[8];
-   int count;
+   static zword_t operand[8];
 
    interpreter_status = 1;
 
@@ -56,6 +54,8 @@ int interpret(  )
 
    for ( interpreter_state = RUN; interpreter_state == RUN && halt == FALSE; )
    {
+		zbyte_t opcode, extended;
+   		int count;
 
       /* Load opcode and set operand count */
 
@@ -72,7 +72,7 @@ int interpret(  )
       /* Multiple operand instructions */
 
       // if ( ( opcode < 0x80 || opcode > 0xc0 ) || extended==TRUE )
-	  if (extended || (opcode^0x80)>0x40)
+	  if (extended || ( opcode < 0x80 || opcode > 0xc0 ) ) //(opcode^0x80)>0x40)
       {
 
          /* Two operand class, load both operands */
@@ -85,39 +85,134 @@ int interpret(  )
          // }
          if (!extended && opcode < 0x80 )
          {
-#if defined(__GNUC__) && defined(__mc68000__)
-			register zbyte_t d0 asm("d0");
+#if defined(__GNUC__) && defined(__mc68000__) && 0
+
+// movq					4
+// and	opcode,d0			4
+// jmp xx(pc,d0)			14 => 22 + 10 + 8 ~40
+
+// 64 octets libres
+
+
+// moveq 2
+// jbsr	2
+// moew	4
+// moveq 2
+// jbsr	2
+// bra		2 => 14
+
+            register zbyte_t d0 asm("d0");
+            asm volatile (
+            "       lsl%.b  #2,%0\n"		// 10
+            "       jbcs    .l1x%=\n"		// 10 / 8
+            "       jbmi    .l01x%=\n"		// 10 / 8
+            "       moveq   #1,d0\n"		// 4 => 26
+            "       jbsr    (%1)\n"
+            "       move%.w d0,%2\n"			
+            "       moveq   #1,d0\n"		// 4
+            "       jbra    .lxx%=\n"		// 10 => 44
+            ".l01x%=:\n"
+            "       moveq   #1,d0\n"		// 4
+            "       jbsr    (%1)\n"
+            "       move%.w d0,%2\n"
+            "       moveq   #2,d0\n"		// 4
+            "       jbra    .lxx%=\n"		// 10 => 46
+            ".l1x%=:\n"
+            "       jbmi    .l11x%=\n"		// 10 / 8
+            "       moveq   #2,d0\n"		// 4
+            "       jbsr    (%1)\n"
+            "       move%.w d0,%2\n"
+            "       moveq   #1,d0\n"		// 4
+            "       jbra    .lxx%=\n"		// 10 => 46
+            ".l11x%=:\n"
+            "       moveq   #2,d0\n"		// 4
+            "       jbsr    (%1)\n"			// 4
+            "       move%.w d0,%2\n"
+            "       moveq   #2,d0\n"		// 4 ==> 42
+            ".lxx%=:\n"
+            "       jbsr    (%1)\n"
+            "       move%.w d0,%3\n"
+            : "=&d" (d0) : "a" (load_operand), "ma" (operand[0]), "ma" (operand[1]), "0" (opcode));
+			opcode &= 0x1f;					// 8 ==> 52 / 50
+#elif defined(__GNUC__) && defined(__mc68000__) && 0
 			asm volatile (
-			"	lsl%.b	#2,%0\n"
-			"	jbcs	.l1x%=\n"
-			"	jbmi	.l01x%=\n"
-			"	moveq	#1,d0\n"
-			"	bsr%.w	%1\n"
+			"	moveq	#0x40,d0\n"		// 4
+			"	and%.w	%0,d0\n"		// 8
+			"	seq		d0\n"			// 6
+			"	addq%.b	#2,d0\n"		// 4 => 22
+			"	jbsr	(%1)\n"
 			"	move%.w	d0,%2\n"
-			"	moveq	#1,d0\n"
-			"	jbra	.lxx%=\n"
-			".l01x%=:\n"
-			"	moveq	#1,d0\n"
-			"	bsr%.w	%1\n"
-			"	move%.w	d0,%2\n"
-			"	moveq	#2,d0\n"
-			"	jbra	.lxx%=\n"
-			".l1x%=:\n"
-			"	jbmi	.l11x%=\n"
-			"	moveq	#2,d0\n"
-			"	bsr%.w	%1\n"
-			"	move%.w	d0,%2\n"
-			"	moveq	#1,d0\n"
-			"	jbra	.lxx%=\n"
-			".l11x%=:\n"
-			"	moveq	#2,d0\n"
-			"	bsr%.w	%1\n"
-			"	move%.w	d0,%2\n"
-			"	moveq	#2,d0\n"
-			".lxx%=:\n"
-			"	bsr%.w	%1\n"
+			"	moveq	#0x20,d0\n"		// 4
+			"	and%.w	%0,d0\n"		// 8
+			"	seq		d0\n"			// 6
+			"	addq%.b	#2,d0\n"		// 4 => 44
+			"	jbsr	(%1)\n"
 			"	move%.w	d0,%3\n"
-			: "=&d" (d0) : "mo" (load_operand), "ma" (operand[0]), "ma" (operand[1]), "0" (opcode));
+			: : "d" (opcode), "a" (load_operand), "m" (operand[0]), "m" (operand[1])
+			: "d0", "d1", "a0", "a1" );
+			opcode &= 0x1f;				// 8 => 52 <<<<<
+#elif defined(__GNUC__) && defined(__mc68000__) && 0
+			// operand[0] = load_operand(0x40 & opcode? 2 : 1);
+			// operand[1] = load_operand(0x20 & opcode? 2 : 1);
+			asm volatile(
+			"	add%.b	%0,%0\n"	// 4
+			"	moveq	#0,d0\n"	// 4
+			"	add%.b	%0,%0\n"	// 4
+			"	addx%.w	d0,d0\n"	// 4
+			"	addq%.w	#1,d0\n"	// 4 => 20
+			"	jbsr	(%1)\n"
+			"	move%.w	d0,%2\n"
+			"	moveq	#0,d0\n"	// 4
+			"	add%.b	%0,%0\n"	// 4
+			"	addx%.w	d0,d0\n"	// 4
+			"	addq%.w	#1,d0\n"	// 4 => 16 => 36
+			"	jbsr	(%1)\n"
+			"	move%.w	d0,%3\n"
+			"	lsr%.b	#3,%0\n"	// 12 => 48 <<
+			: "+d" (opcode) : "a" (load_operand), "m" (operand[0]), "m" (operand[1])
+			: "d0", "d1", "a0", "a1");
+#elif defined(__GNUC__) && defined(__mc68000__)
+			// operand[0] = load_operand(0x40 & opcode? 2 : 1);
+			// operand[1] = load_operand(0x20 & opcode? 2 : 1);
+			asm volatile(
+			"	moveq	#0x60,d0\n"
+			"	and%.b	%0,d0\n"
+			"	jmp	(.l00_%=,pc,d0.w)\n"
+			".l00_%=:\n"
+			"	moveq	#1,d0\n"
+			"	jbsr	(%1)\n"
+			"	move%.w	d0,%2\n"
+			"	moveq	#1,d0\n"
+			"	pea		(.lxx_%=,pc)\n"
+			"	jbra	(%1)\n"
+			"	.space	.l00_%=+32-.\n"
+			".l01_%=:\n"
+			"	moveq	#1,d0\n"
+			"	jbsr	(%1)\n"
+			"	move%.w	d0,%2\n"
+			"	moveq	#2,d0\n"
+			"	pea		(.lxx_%=,pc)\n"
+			"	jbra	(%1)\n"
+			"	.space	.l01_%=+32-.\n"
+			".l10_%=:\n"
+			"	moveq	#2,d0\n"
+			"	jbsr	(%1)\n"
+			"	move%.w	d0,%2\n"
+			"	moveq	#1,d0\n"
+			"	pea		(.lxx_%=,pc)\n"
+			"	jbra	(%1)\n"
+			"	.space	.l10_%=+32-.\n"
+			".l11_%=:\n"
+			"	moveq	#2,d0\n"
+			"	jbsr	(%1)\n"
+			"	move%.w	d0,%2\n"
+			"	moveq	#2,d0\n"
+			"	jbsr	(%1)\n"
+			".lxx_%=:\n"
+			"	move%.w	d0,%3\n"
+			"	and%.w	#0x1f,%0\n"
+			: "+d" (opcode) : "a" (load_operand), "m" (operand[0]), "m" (operand[1])
+			: "d0", "d1", "a0", "a1");
 #else
 			 switch(opcode&0x60) {
 				 case 0x00:
@@ -132,7 +227,7 @@ int interpret(  )
 				 
 				 case 0x40:
 				 operand[0] = load_operand(2);
-				 operand[1] = load_operand(1);
+				 operand[1] = l	oad_operand(1);
 				 break;
 				 
 				 default: 
@@ -140,8 +235,9 @@ int interpret(  )
 				 operand[1] = load_operand(2);
 				 break;
 			 }
+			 opcode &= 0x1f;
 #endif
-			 count = 2; opcode &= 0x1f;
+			 count = 2; 
          }
          else
          {
@@ -173,13 +269,13 @@ int interpret(  )
 			count = a2 - operand;
          }
 
-         if ( extended == TRUE )
+         if ( extended /*== TRUE*/ )
          {
 #ifdef DEBUG_TERPRE
             fprintf( stderr, "PC = 0x%08lx   Op%s = 0x%02x   %d, %d, %d\n", pc, "(EX)", opcode,
                      operand[0], operand[1], operand[2] );
 #endif
-            switch ( ( char ) opcode )
+            switch ( /*( char )*/ opcode )
             {
 
                   /* Extended operand instructions */
@@ -227,7 +323,7 @@ int interpret(  )
             fprintf( stderr, "PC = 0x%08lx   Op%s = 0x%02x   %d, %d, %d\n", pc, "(2+)", opcode,
                      operand[0], operand[1], operand[2] );
 #endif
-            switch ( ( char ) opcode )
+            switch ( /*( char )*/ opcode )
             {
 
                   /* Two or multiple operand instructions */

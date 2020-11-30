@@ -47,11 +47,11 @@ zword_t load_operand( int type )
 	"	jbeq 	%2\n"
 	"	subq%.l	#2,%0\n"
 	"	jbeq	.l%=\n"
-	"	jbsr	%1\n"
+	"	bsr%.w	%1\n"
 	"	and%.w	#255,d0\n"
 	"	rts\n"
 	".l%=:\n"
-	"	jbsr	%1\n"
+	"	bsr%.w	%1\n"
 	"	and%.w  #255,d0\n"
 	"	ext.l   d0\n"
 	"	jbne	%3\n"
@@ -69,18 +69,20 @@ zword_t load_operand( int type )
 	d0 -= 2;
 	if(!d0) {
 		asm volatile (
-		"	jbsr	%1\n"
+		"	bsr%.w	%1\n"
 		"	and%.w	#255,d0\n"
 		"	ext%.l	d0\n"
-		"	jbne	%2\n"
+		"	jbne	%2\n" /* includes  rts */
 		"	move%.w	%3,d0\n"
 		"	addq.w	#1,%3\n"
+		"	add%.w	d0,d0\n"
 		: "=d" (d0)
 		: "m" (read_code_byte), "m" (load_variable), "mr" (sp));
-		return stack[d0];
+		asm volatile ("move%.w %1,%0" : "=d" (d0) : "m" (d0[(char*)stack]));
+		return d0;
 	}
-	asm volatile("" : : "d" (d0));
-	return read_code_byte(  );	
+	asm volatile("bsr%.w %1\n\tand%.w #255,d0" : "=&d" (d0) : "m" (read_code_byte), "0" (d0));
+	return d0;	
 #else
 	switch(type) {
 		default: 
@@ -186,7 +188,10 @@ zword_t load_variable( int number )
 #if 1
 	short d0 = number;
 	if(0==d0) return stack[sp];
-	if(0==(d0 & ~15)) return stack[fp - --d0];
+	if(0==(d0 & ~15)) {
+		register zword_t *a0 = &stack[1];
+		return a0[(signed short)fp - d0];
+	}
 	return get_word( (short)h_globals_offset + ( ( d0 - 16 ) * 2 ) );
 #else
    if ( number )
