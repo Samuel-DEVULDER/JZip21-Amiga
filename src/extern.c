@@ -80,9 +80,11 @@ zword_t stack[STACK_SIZE];
 zword_t sp = STACK_SIZE;
 zword_t fp = STACK_SIZE - 1;
 zword_t frame_count = 0;        /* frame pointer for get_fp */
+#ifndef PC_REG
 unsigned long pc = 0;
-int interpreter_state = RUN;
-int interpreter_status = 0;
+#endif
+zword_t interpreter_state = RUN;
+zword_t interpreter_status = 0;
 
 /* Data region data */
 

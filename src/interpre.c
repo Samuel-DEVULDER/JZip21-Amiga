@@ -23,7 +23,7 @@
  *
  * --------------------------------------------------------------------
  */
-
+// #define DEBUG_TERPRE
 /*
  * interpre.c
  *
@@ -35,7 +35,7 @@
 
 /*#define DEBUG_TERPRE*/
 
-static int halt = FALSE;
+static zword_t halt = FALSE;
 
 /*
  * interpret
@@ -52,7 +52,7 @@ int interpret(  )
 
    /* Loop until HALT instruction executed */
 
-   for ( interpreter_state = RUN; interpreter_state == RUN && halt == FALSE; )
+   for ( interpreter_state = RUN; interpreter_state /*== RUN*/ && halt == FALSE; )
    {
 		zbyte_t opcode, extended;
    		int count;
@@ -227,7 +227,7 @@ int interpret(  )
 				 
 				 case 0x40:
 				 operand[0] = load_operand(2);
-				 operand[1] = l	oad_operand(1);
+				 operand[1] = load_operand(1);
 				 break;
 				 
 				 default: 
@@ -462,6 +462,10 @@ int interpret(  )
                case 0x2f:
                   z_set_cursor( operand[0], operand[1] );
                   break;
+
+			   case 0x30:
+					z_get_cursor(operand[0] );
+					break;
 
                case 0x31:
                   z_set_text_style( operand[0] );

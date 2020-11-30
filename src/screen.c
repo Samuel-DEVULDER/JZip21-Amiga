@@ -203,6 +203,15 @@ void z_erase_line( zword_t flag )
       clear_line(  );
 }                               /* z_erase_line */
 
+
+void z_get_cursor(zword_t addr)
+{
+	int row, col;
+	get_cursor_position(&row, &col);
+	set_word(addr, row);
+	set_word(addr, col);
+}
+
 /*
  * z_set_cursor
  *

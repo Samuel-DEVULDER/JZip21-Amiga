@@ -516,8 +516,8 @@ register unsigned long pc asm(STR(PC_REG));
 extern unsigned long pc;
 #endif
 extern zword_t frame_count;
-extern int interpreter_state;
-extern int interpreter_status;
+extern zword_t interpreter_state;
+extern zword_t interpreter_status;
 
 extern unsigned int data_size;
 extern zbyte_t *datap;
@@ -753,6 +753,7 @@ int restore_quetzal( FILE *, FILE * );
 
 void z_show_status( void );
 void z_set_cursor( zword_t, zword_t );
+void z_get_cursor( zword_t);
 void z_set_font( zword_t );
 void z_split_window( zword_t );
 void z_set_window( zword_t );
