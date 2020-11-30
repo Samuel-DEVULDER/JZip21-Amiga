@@ -1105,7 +1105,6 @@ static void _set_attribute(void)
 	static UWORD attribute = 0;
 	if(attribute == current_attr) return;
 	attribute = current_attr;
-	// fprintf(stderr, "set_attribute(%d)\n", attribute);
 #if defined HARD_COLORS
 	if ( attribute == NORMAL ) {
 		int bak = monochrome, bg = current_bg, fg = current_fg;
@@ -1130,7 +1129,7 @@ static void _set_attribute(void)
 void set_attribute( attribute )
    int attribute;
 {
-	current_attr = attribute;
+	current_attr = attribute & (REVERSE|BOLD|EMPHASIS);
 }                               /* set_attribute */
 
 static void display_string( s )
