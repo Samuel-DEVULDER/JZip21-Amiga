@@ -6,3 +6,5 @@ Amiga port JZip2.1 (10 Oct 2000) from http://jzip.sourceforge.net/
 * Works with standard console
 * Supports color as much as possible
 * Supports mouse
+
+If you need an Inforum compiler, you can try [this one](https://github.com/Samuel-DEVULDER/Inform6-Amiga) for the Amiga ;)
