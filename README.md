@@ -10,6 +10,10 @@ Amiga port JZip2.1 (10 Oct 2000) from http://jzip.sourceforge.net/
 * Supports mc68000 processor
 * Contains asm-optimized parts
 
+# Screenshots
+![JZip2.1 playing SameGame.z5 on an A500 (KS1.3, mc68000, 512Kb chip)](https://github.com/Samuel-DEVULDER/JZip21-Amiga/blob/main/screenshots/Jzip-playing-SameGame.png?raw=true)
+![JZip2.1 playing BZbeta.z5 on an A500 (KS1.3, mc68000, 512Kb chip)](https://github.com/Samuel-DEVULDER/JZip21-Amiga/blob/main/screenshots/Jzip-playing-BZBeta.png?raw=true)
+
 # Games
 
 Lots of games are available on the [IF-archive](https://www.ifarchive.org/indexes/if-archive/), but I'd also like to notice about [zifmia](https://github.com/jeffnyman/zifmia) as well.
