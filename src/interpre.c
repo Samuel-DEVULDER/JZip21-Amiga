@@ -72,7 +72,8 @@ int interpret(  )
       /* Multiple operand instructions */
 
       // if ( ( opcode < 0x80 || opcode > 0xc0 ) || extended==TRUE )
-	  if (extended || ( opcode < 0x80 || opcode > 0xc0 ) ) //(opcode^0x80)>0x40)
+	  if (extended || //( opcode < 0x80 || opcode > 0xc0 ) ) 
+	      (opcode^0x80)>0x40)
       {
 
          /* Two operand class, load both operands */

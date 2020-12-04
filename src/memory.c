@@ -34,8 +34,8 @@
 
 typedef struct cache_entry
 {
-   struct cache_entry *flink;
    unsigned int page_key;
+   struct cache_entry *flink;
    zbyte_t data[PAGE_SIZE];
 }
 cache_entry_t;
@@ -46,9 +46,10 @@ static cache_entry_t *cache = NULL;
 
 /* Pseudo translation buffer, one entry each for code and data pages */
 
-static unsigned int current_code_page = 0;
+// static unsigned int current_code_page = 0;
 static cache_entry_t *current_code_cachep = NULL;
-static unsigned int current_data_page = 0;
+// register cache_entry_t *current_code_cachep asm("a3");
+//static unsigned int current_data_page = 0;
 static cache_entry_t *current_data_cachep = NULL;
 
 static unsigned int calc_data_pages( void );
@@ -96,7 +97,7 @@ void load_cache( void )
    cachep->flink = cache;
    cachep->page_key = 0;
    cache = cachep;
-
+   
    /* Calculate dynamic cache pages required */
 
    if ( h_config & CONFIG_MAX_DATA )
@@ -143,6 +144,7 @@ void load_cache( void )
       }
    }
 
+   current_code_cachep = current_data_cachep = cache;
 }                               /* load_cache */
 
 /*
@@ -229,42 +231,34 @@ zbyte_t read_code_byte( void )
 	asm volatile("andi%.w %1,%0" : "+d" (page_key): "J" (~PAGE_MASK));
 #else
 	unsigned int page_key = pc & ~PAGE_MASK;
+#endif
 
+#ifndef __GNUC__
+#define __builtin_expect(x,y) (x)
 #endif
-	
-		
 	/* Load page into translation buffer */
-	if ( page_key - current_code_page )
+	if ( //__builtin_expect(!current_code_cachep,0)  ||
+		 __builtin_expect(page_key - current_code_cachep->page_key,0) )
 	{
-#if defined(__GNUC__) && defined(__mc68000__) && !defined(PC_REG)
-		asm volatile("move.l %0,-(sp)" : : "r" (page_key) : "sp");
-#endif
-		if ( !(current_code_cachep = update_cache( page_key )) )
+		if ( __builtin_expect(!(current_code_cachep = update_cache( page_key )),0) )
 		{
 			fatal
 					( "read_code_byte(): read from non-existant page!\n\t(Your dynamic memory usage _may_ be over 64k in size!)" );
 		}
-#if defined(__GNUC__) && defined(__mc68000__)
-#ifndef PC_REG
-		asm volatile("move.l (sp)+,%0" : "=r" (page_key) : : "sp");
+#if defined(__GNUC__) && defined(__mc68000__) && defined(PC_REG)
+		asm volatile(
+		"	move%.w %1,%0\n"
+		"	addq%.l #1,%1\n" 
+		"	andi%.w %2,%0\n"
+		: "=d" (page_key), "+dm" (pc) : "J" (PAGE_MASK));
+		return current_code_cachep->data[(short)page_key];
 #else
-		page_key = pc;asm volatile("andi%.w %1,%0" : "+d" (page_key): "J" (~PAGE_MASK));
+		page_key = current_code_cachep->page_key;
 #endif
-#else
-		page_key = pc & ~PAGE_MASK;
-#endif
-		current_code_page = page_key;
 	}
 	
 	/* Return byte & update PC */
-#if defined(__GNUC__) && defined(__mc68000__) && 0
-	asm volatile(
-	"	sub%.l	%1,%0\n"
-	"	addq%.l	#1,%1\n"
-	"	neg%.l	%0\n"
-	: "+d" (page_key)
-	: "m" (pc));
-#elif defined(__GNUC__) && defined(__mc68000__)
+#if defined(__GNUC__) && defined(__mc68000__)
 #ifdef PC_REG
 	asm volatile(
 	"	eor%.w	%1,%0\n"
@@ -278,17 +272,6 @@ zbyte_t read_code_byte( void )
 	: "+d" (page_key)
 	: "m" (pc), "m" (((zword_t*)&pc)[1]));
 #endif
-#elif defined(__GNUC__) && defined(__mc68000__) && 0
-{ struct cache_entry *a0 = current_code_cachep;
-	asm volatile(
-	"   add%.l  %2,%0\n"
-	"	addq%.l	#1,%2\n"
-	"   sub%.l	%1,%0\n"
-	: "=&a" (a0)
-	: "d" (page_key), "m" (pc), "0" (a0));
-return a0->data[0];}
-#elif defined(__GNUC__) && defined(__mc68000__) && 0
-	return ((struct cache_entry*)(((zbyte_t*)current_code_cachep) + pc++ - page_key))->data[0];
 #else
 	page_key ^= pc++;
 #endif
@@ -345,7 +328,7 @@ zword_t read_data_word( unsigned long *addr )
 zbyte_t read_data_byte( unsigned long *addr )
 {
 	zbyte_t value = 0;
-	unsigned int page_key = *addr;
+	register unsigned int page_key asm("d0") = *addr;
 	
 	/* Check if byte is in non-paged cache */
 	
@@ -357,22 +340,37 @@ zbyte_t read_data_byte( unsigned long *addr )
 	else
 	{
 	/* Calculate page and offset values */
+#if defined(__GNUC__) && defined(__mc68000__)
+		asm volatile("andi%.w %1,%0" : "+d" (page_key): "J" (~PAGE_MASK));
+#else
 		page_key &= ~PAGE_MASK;
+#endif
 		/* Load page into translation buffer */
-		if ( page_key != current_data_page )
+		if ( //__builtin_expect(!current_code_cachep, 0)  ||
+			__builtin_expect( page_key - current_data_cachep->page_key,0) )
 		{
-			if(!(current_data_cachep = update_cache( page_key ))) 
+#if defined(__GNUC__) && defined(__mc68000__)
+			asm volatile("move%.l %0,-(sp)" : : "a" (addr));
+#endif
+			if( __builtin_expect(!(current_data_cachep = update_cache( page_key )),0)) 
 			{
 				fatal( "read_data_byte(): Fetching data from invalid page!" );
 			}
-			current_data_page = page_key = *addr & ~PAGE_MASK;
+#if defined(__GNUC__) && defined(__mc68000__)
+			asm volatile("move%.l (sp)+,%0" : "=a" (addr));
+#endif
+			page_key = current_data_cachep->page_key;
 		}
 	
 		/* fetch value & update address */
-		value = current_data_cachep->data[page_key ^= (*addr)];
+		{ short pk = page_key ^ (*addr);
+		value = current_data_cachep->data[pk];}
 	}
+#if defined(__GNUC__) && defined(__mc68000__)
+	asm volatile("addq%.l #1,%0" : : "m" (*addr));
+#else
 	++*addr;
-	
+#endif	
 	return ( value );
 }                               /* read_data_byte */
 
@@ -457,15 +455,15 @@ static cache_entry_t *update_cache( unsigned int page_key )
    if ( cachep->page_key != page_key )
    {
       /* Reusing last cache page, so invalidate cache if page was in use */
-      if ( cachep->flink == NULL && cachep->page_key )
+      if ( 0 && cachep->flink == NULL && cachep->page_key )
       {
-         if ( current_code_page == cachep->page_key )
+         if ( current_code_cachep == cachep )
          {
-            current_code_page = 0;
+            current_code_cachep = 0;
          }
-         if ( current_data_page == cachep->page_key )
+         if ( current_data_cachep == cachep )
          {
-            current_data_page = 0;
+            current_data_cachep = 0;
          }
       }
 
