@@ -16,7 +16,7 @@ Amiga port JZip2.1 (10 Oct 2000) from http://jzip.sourceforge.net/
 
 # Games
 
-Lots of games are available on the [IF-archive](https://www.ifarchive.org/indexes/if-archive/), but I'd also like to notice about [zifmia](https://github.com/jeffnyman/zifmia) as well.
+Lots of games are available on the [IF-archive](https://www.ifarchive.org/indexes/if-archive/), but I'd also like to mention [zifmia](https://github.com/jeffnyman/zifmia) which also contains testers.
 
 # Compiler 
 
