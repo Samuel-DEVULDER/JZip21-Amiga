@@ -9,7 +9,7 @@ PC_REG = d7
 
 CODE_MODEL = -fbaserel 
 #-ffixed-a3
-CFLAGS = -g -Wall -funroll-loops -mregparm -m68$(CPU) -O3 -fomit-frame-pointer $(CODE_MODEL) -c -DPOSIX -DAMIGA -DLOUSY_RANDOM -DHARD_COLORS
+CFLAGS = -g -Wall -fno-tree-loop-distribute-patterns -Dxxxx=-funroll-loops  -mregparm -m68$(CPU) -O3 -fomit-frame-pointer $(CODE_MODEL) -c -DPOSIX -DAMIGA -DLOUSY_RANDOM -DHARD_COLORS
 
 # - free (1261) -fno-function-cse (1123) -fno-inline 
 LDFLAGS = -g -mcrt=nix13 $(CODE_MODEL)
