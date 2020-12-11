@@ -71,7 +71,7 @@ zword_t load_operand( int type )
 		asm volatile (
 		"	bsr%.w	%1\n"
 		"	and%.w	#255,d0\n"
-		"	ext%.l	d0\n"
+		// "	ext%.l	d0\n"
 		"	jbne	%2\n" /* includes  rts */
 		"	move%.w	%3,d0\n"
 		"	addq.w	#1,%3\n"
@@ -188,8 +188,10 @@ zword_t load_variable( int number )
 #if 1
 	short d0 = number;
 	if(0==d0) return stack[sp];
-	if(0==(d0 & ~15)) {
+	if(__builtin_expect(d0<16,1)) { //0==(d0 & ~15)) {
 		register zword_t *a0 = &stack[1];
+		// number = -number; number += fp;
+		// return a0[number];
 		return a0[(signed short)fp - d0];
 	}
 	return get_word( (short)h_globals_offset + ( ( d0 - 16 ) * 2 ) );
