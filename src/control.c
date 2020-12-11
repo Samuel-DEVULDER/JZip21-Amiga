@@ -66,9 +66,11 @@ void z_check_arg_count( zword_t argc )
  *
  */
  
-int z_call( int argc, zword_t * argv, int type )
+int z_call( int argc_, zword_t * argv, int type_ )
 {
-
+   short argc = argc_;
+   short type = type_;
+   
    /* Convert calls to 0 as returning FALSE */
 
    if ( argv[0] == 0 )
@@ -76,7 +78,7 @@ int z_call( int argc, zword_t * argv, int type )
       if ( type == FUNCTION )
          store_operand( FALSE );
    } else {
-	    zword_t *a0 = &stack[sp]; short args;
+	    zword_t *a0 = &stack[(short)sp]; short args;
 		
 		/* Save current PC, FP and argument count on stack */
 
@@ -84,40 +86,59 @@ int z_call( int argc, zword_t * argv, int type )
 		*--a0 = ( zword_t ) ( pc % PAGE_SIZE );
 		*--a0 = fp;
 		*--a0 = --argc | type;
-
+#if defined(__GNUC__) && defined(__mc68000__)
+		asm volatile("move%.l %0,-(sp)" : : "r" (type));
+#endif
 		/* Create FP for new subroutine and load new PC */
 		sp -= 4;
 		fp = sp - 1;
-		pc = ( unsigned long ) *argv++ * story_scaler;
+#if defined(__GNUC__) && defined(__mc68000__)
+		asm volatile("move%.w (%1)+,%0" : "=d" (pc) : "a" (argv));
+		asm volatile("mulu %1,%0" : "+d" (pc) : "m" (*(2+(char*)&story_scaler)));
+#else
+		pc = (( short ) *argv++) * (short)story_scaler;
+#endif
+		
 
 #if defined(USE_QUETZAL)
 		++frame_count;
 #endif
 
 		/* Read argument count and initialise local variables */
-		args = ( unsigned int ) read_code_byte(  );
+#if defined(__GNUC__) && defined(__mc68000__)
+		asm volatile("move%.l %0,-(sp)" : : "r" (argv));
+#endif
+		args = read_code_byte(  );
+#if defined(__GNUC__) && defined(__mc68000__)
+		asm volatile("move%.l (sp)+,%0" : "=r" (argv));
+#endif
 		if(args) {
 #if defined(USE_QUETZAL)
-		*a0 |= args << VAR_SHIFT;
+			*a0 |= args << VAR_SHIFT;
 #endif
-		// if(args>=1) sp -= args-1;
-		sp -= args;
-		if( h_type > V4 ) {			
-			do {
-				*--a0 = ( --argc >= 0 ) ? *argv++ : 0;
-			} while(--args);
-		} else {
-			do {
-				zword_t arg =  read_code_word(  );
-				*--a0 = ( --argc >= 0 ) ? *argv++ : arg;
-			} while(--args);
-		}
+			sp -= args;
+			if( h_type > V4 ) {			
+				if(argc) do *--a0 = *argv++; while(--args && --argc);
+				while(args) {*--a0 = 0; --args;}
+			} else {
+				// do {
+					// zword_t arg =  read_code_word(  );
+					// *--a0 = ( --argc >= 0 ) ? *argv++ : arg;
+				// } while(--args);
+				if(argc) do {
+					read_code_word();
+					*--a0 = *argv++;
+				} while(--args && --argc);
+				while(args) {*--a0 = read_code_word();--args;}
+			}
 		}
 
 		/* If the call is asynchronous then call the interpreter directly.
 		* We will return back here when the corresponding return frame is
 		* encountered in the ret call. */
-
+#if defined(__GNUC__) && defined(__mc68000__)
+		asm volatile("move%.l (sp)+,%0" : "=r" (type));
+#endif
 		if ( type == ASYNC )
 		{
 		  int status = interpret(  );
