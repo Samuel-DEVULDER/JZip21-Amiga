@@ -70,10 +70,13 @@ int interpret(  )
          extended = FALSE;
       
       /* Multiple operand instructions */
+#ifndef __GNUC__
+#define __builtin_expect(x,y) (x)
+#endif
 
       // if ( ( opcode < 0x80 || opcode > 0xc0 ) || extended==TRUE )
 	  if (extended || //( opcode < 0x80 || opcode > 0xc0 ) ) 
-	      (opcode^0x80)>0x40)
+	      __builtin_expect((opcode^0x80)>0x40,1))
       {
 
          /* Two operand class, load both operands */
@@ -84,7 +87,8 @@ int interpret(  )
             // operand[count++] = load_operand( ( opcode & 0x20 ) ? 2 : 1 );
             // opcode &= 0x1f;
          // }
-         if (!extended && opcode < 0x80 )
+
+         if ( __builtin_expect(!extended && opcode < 0x80,1) )
          {
 #if defined(__GNUC__) && defined(__mc68000__) && 0
 
@@ -211,7 +215,7 @@ int interpret(  )
 			"	jbsr	(%1)\n"
 			".lxx_%=:\n"
 			"	move%.w	d0,%3\n"
-			"	and%.w	#0x1f,%0\n"
+			// "	and%.w	#0x1f,%0\n"
 			: "+d" (opcode) : "a" (load_operand), "m" (operand[0]), "m" (operand[1])
 			: "d0", "d1", "a0", "a1");
 #else
@@ -236,9 +240,10 @@ int interpret(  )
 				 operand[1] = load_operand(2);
 				 break;
 			 }
-			 opcode &= 0x1f;
 #endif
+			 opcode &= 0x1f;
 			 count = 2; 
+			 goto not_extended;
          }
          else
          {
@@ -320,6 +325,7 @@ int interpret(  )
          }
          else
          {
+			 not_extended:
 #ifdef DEBUG_TERPRE
             fprintf( stderr, "PC = 0x%08lx   Op%s = 0x%02x   %d, %d, %d\n", pc, "(2+)", opcode,
                      operand[0], operand[1], operand[2] );
