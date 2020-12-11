@@ -30,6 +30,10 @@
 
 #include "ztypes.h"
 
+#ifndef __GNUC__
+#define __builtin_expect(x,y) (x)
+#endif
+
 /* A cache entry */
 
 typedef struct cache_entry
@@ -233,9 +237,6 @@ zbyte_t read_code_byte( void )
 	unsigned int page_key = pc & ~PAGE_MASK;
 #endif
 
-#ifndef __GNUC__
-#define __builtin_expect(x,y) (x)
-#endif
 	/* Load page into translation buffer */
 	if ( //__builtin_expect(!current_code_cachep,0)  ||
 		 __builtin_expect(page_key - current_code_cachep->page_key,0) )
@@ -439,43 +440,128 @@ static unsigned int calc_data_pages( void )
  *
  */
 
-static cache_entry_t *update_cache( unsigned int page_key )
+static cache_entry_t *update_cache( unsigned int page_key)
 {
-   cache_entry_t *cachep, *lastp;
+	register void **a0 = (void**)cache, **a1;
+#if defined(__mc68000__)
 
+#if defined(__GNUC__) 
+	asm volatile (
+	"	cmp%.l	(%0)+,%2\n"
+	"	move%.l	%0,%1\n"
+	"	jbeq	.x_%=\n"
+	".l_%=:\n"
+	"	move%.l	(%0),d1\n"
+	"	jbeq	.XX\n"
+	"	move%.l	%0,%1\n"
+	"	move.l	d1,%0\n"
+	"	cmp%.l	(%0)+,%2\n"
+	"	jbne	.l_%=\n"
+	".x_%=:\n"
+	: "+a" (a0), "=a" (a1) 
+	: "d" (page_key) 
+	: "d1");
+#else
+	a1 = (void**)&cache->flink;
+	while((int)*a0++ != page_key) {
+		if(! *a0) goto XX;
+		a0 = *(a1=a0);
+	}
+#endif
+	/* If no page in chain then read it from disk */
+
+	if ( __builtin_expect(!*a0, 1) )  {
+		/* Load the new page number and the page contents from disk */
+
+#if defined(__GNUC__) 
+	XX:
+		asm volatile(".XX:\n\tmove%.l %0,-(sp)" : : "r" (a1));
+		asm volatile("move%.l %1,-(%0)" : "+a" (a0) : "r" (page_key));
+		a0 += 2; page_key >>= PAGE_SHIFT;
+		{register int d0 asm("d0") = page_key, *a0_ asm("a0") = (void*)a0;
+		asm volatile("bsr%.w %2" : "+d" (d0), "+a" (a0_) : "m" (read_page) :  "d1", "a1", "memory");}
+		asm volatile("move%.l (sp)+,%0":  "=r" (a1));
+		asm volatile("move%.l (%1),%0\n\taddq%.l #4,%0":  "=r" (a0) : "a" (a1));
+#else
+		XX: 
+		*--a0 = (void*)page_key;
+		read_page( page_key>>PAGE_SHIFT, &a0[2] );
+		a0 = *a1; a0++;
+#endif
+	}
+
+	/* If page is not at front of cache chain then move it there */
+#if defined(__GNUC__) 
+	asm volatile("moveq #4,%0\n\tadd%.l %1,%0":  "=r" (page_key) : "m" (cache));
+#else
+	page_key = (int)&cache->flink; 
+#endif 
+	if ( __builtin_expect(page_key - (int)a1,1) ) {
+		*a1 = *a0; 
+		page_key -= 4;
+		*a0 = (void*)page_key;
+		return (cache_entry_t*)(cache = (void*)--a0);
+	} else {
+		return (cache_entry_t*)--a0;
+	}
+#else
+   register cache_entry_t *cachep, *lastp;
    /* Search the cache chain for the page */
-
-   for ( lastp = cache, cachep = cache;
-         cachep->page_key && cachep->page_key != page_key && cachep->flink != NULL;
-         lastp = cachep, cachep = cachep->flink )
-      ;
-
+	
+#if defined(__GNUC__) && defined(__mc68000__)
+   asm volatile("move%.l %1,%0" : "=a" (cachep) : "m" (cache));
+#else
+   cachep = cache;
+#endif
+   
+#if defined(__GNUC__) && defined(__mc68000__)
+	asm volatile (
+	"	cmp%.l	(%0),%2\n"
+	"	move%.l	%0,%1\n"
+	"	jbeq	.x_%=\n"
+	".l_%=:\n"
+	"	move%.l	4(%0),d1\n"
+	"	jbeq	.zzz\n"
+	"	move%.l	%0,%1\n"
+	"	move.l	d1,%0\n"
+	"	cmp%.l	(%0),%2\n"
+	"	jbne	.l_%=\n"
+	".x_%=:\n"
+	: "+a" (cachep), "=a" (lastp) 
+	: "d" (page_key) 
+	: "d1");
+#else
+   lastp = cachep; 
+   while(/*cachep->page_key &&*/ cachep->page_key != page_key && cachep->flink != NULL) {
+         lastp = cachep; 
+		 cachep = cachep->flink;
+   }
+#endif
    /* If no page in chain then read it from disk */
 
-   if ( cachep->page_key != page_key )
+   if ( __builtin_expect(!cachep->flink, 1)/*__builtin_expect(page_key - cachep->page_key,0)*/ )
    {
-      /* Reusing last cache page, so invalidate cache if page was in use */
-      if ( 0 && cachep->flink == NULL && cachep->page_key )
-      {
-         if ( current_code_cachep == cachep )
-         {
-            current_code_cachep = 0;
-         }
-         if ( current_data_cachep == cachep )
-         {
-            current_data_cachep = 0;
-         }
-      }
-
+#if defined(__GNUC__) && defined(__mc68000__)
+	asm volatile(".zzz:\n");
+#endif
       /* Load the new page number and the page contents from disk */
 
       cachep->page_key = page_key;
+	  
+#if defined(__GNUC__) && defined(__mc68000__)
+	  asm volatile("move%.l %0,-(sp)" : : "r" (lastp));
+#endif
+	  
       read_page( page_key>>PAGE_SHIFT, cachep->data );
+
+#if defined(__GNUC__) && defined(__mc68000__)
+	  asm volatile("move%.l (sp)+,%0":  "=r" (lastp));
+	  cachep = lastp->flink;
+#endif 
    }
 
    /* If page is not at front of cache chain then move it there */
-
-   if ( lastp != cache )
+   if ( !__builtin_expect((int)cachep - (int)cache,0) ) 	
    {
       lastp->flink = cachep->flink;
       cachep->flink = cache;
@@ -483,5 +569,5 @@ static cache_entry_t *update_cache( unsigned int page_key )
    }
 
    return ( cachep );
-
+#endif
 }                               /* update_cache */
