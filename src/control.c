@@ -78,7 +78,7 @@ int z_call( int argc_, zword_t * argv, int type_ )
       if ( type == FUNCTION )
          store_operand( FALSE );
    } else {
-	    zword_t *a0 = &stack[(short)sp]; short args;
+	    zword_t *a0 = &stack[sp]; short args;
 		
 		/* Save current PC, FP and argument count on stack */
 
